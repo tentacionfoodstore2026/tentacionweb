@@ -84,7 +84,7 @@ export const MerchantPanel = () => {
         // Fetch Orders
         const { data: orderData } = await supabase
           .from('orders')
-          .select('*, profiles(name), order_items(*, products(*))')
+          .select('*, profiles!orders_user_id_fkey(name), order_items(*, products(*))')
           .eq('business_id', user.businessId)
           .order('created_at', { ascending: false });
         if (orderData) setOrders(orderData);
@@ -97,6 +97,35 @@ export const MerchantPanel = () => {
     };
 
     fetchData();
+
+    if (!user?.businessId) return;
+
+    const ordersChannel = supabase
+      .channel('merchant-orders-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders', filter: `business_id=eq.${user.businessId}` },
+        () => {
+          supabase
+            .from('orders')
+            .select('*, profiles!orders_user_id_fkey(name), order_items(*, products(*))')
+            .eq('business_id', user.businessId)
+            .order('created_at', { ascending: false })
+            .then(({ data }) => { if (data) setOrders(data); });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `business_id=eq.${user.businessId}` },
+        (payload) => {
+          setOrders(prev => prev.map(o => o.id === payload.new.id ? { ...o, ...payload.new } : o));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      ordersChannel.unsubscribe();
+    };
   }, [user]);
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -206,7 +235,7 @@ export const MerchantPanel = () => {
       .from('orders')
       .update({ status })
       .eq('id', id)
-      .select('*, profiles(name)')
+      .select('*, profiles!orders_user_id_fkey(name)')
       .single();
       
     if (data) {

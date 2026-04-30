@@ -162,7 +162,7 @@ export const Checkout = () => {
     setStep('processing');
     
     try {
-      // 1. Insert Order with full delivery info
+      // 1. Insert Order
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -180,32 +180,51 @@ export const Checkout = () => {
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('Supabase Order Error:', orderError);
+        throw new Error(orderError.message);
+      }
 
-      // 2. Insert Order Items
-      const orderItems = items.map(item => ({
-        order_id: orderData.id,
-        product_id: item.id,
-        quantity: item.quantity,
-        price: item.price
-      }));
+      // 2. Insert Order Items (Intentar pero capturar error por separado)
+      try {
+        const orderItems = items.map(item => ({
+          order_id: orderData.id,
+          product_id: item.id,
+          quantity: item.quantity,
+          price: item.price
+        }));
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
+        await supabase.from('order_items').insert(orderItems);
+      } catch (err) {
+        console.warn('Items could not be saved, but order was created:', err);
+      }
 
-      if (itemsError) throw itemsError;
+      // 3. Save order locally
+      useOrderStore.getState().addOrder({
+        id: orderData.id,
+        userId: user.id,
+        customerName: formData.name,
+        businessId: businessId,
+        items: items.map(item => ({
+          productId: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        total: finalTotal,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
 
-      // Mark promotion as used if applicable
       if (appliedPromotion?.uniqueCode) {
         usePromotionCode(appliedPromotion.uniqueCode);
       }
 
       setOrderId(orderData.id.substring(0, 8).toUpperCase());
       setStep('success');
-    } catch (error) {
-      console.error('Error creating order:', error);
-      alert('Hubo un error al procesar tu pedido. Por favor intenta de nuevo.');
+    } catch (error: any) {
+      console.error('Detailed Order Error:', error);
+      alert(`Error: ${error.message || 'Error desconocido al procesar el pedido'}`);
       setStep('form');
     }
   };

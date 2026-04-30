@@ -17,12 +17,13 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
   );
   
   const [selectedExtras, setSelectedExtras] = useState<{ groupName: string; optionName: string; price: number }[]>([]);
+  const [quantity, setQuantity] = useState(1);
 
   const totalPrice = useMemo(() => {
     const base = selectedSize ? selectedSize.price : product.price;
     const extras = selectedExtras.reduce((acc, curr) => acc + curr.price, 0);
-    return base + extras;
-  }, [selectedSize, selectedExtras, product]);
+    return (base + extras) * quantity;
+  }, [selectedSize, selectedExtras, product, quantity]);
 
   const handleToggleExtra = (groupName: string, option: { name: string, price: number }, max: number) => {
     const currentGroupSelections = selectedExtras.filter(e => e.groupName === groupName);
@@ -51,12 +52,22 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
       }
     }
 
-    addItem(product, selectedSize, selectedExtras);
+    addItem(product, selectedSize, selectedExtras, quantity);
     onClose();
   };
 
+  const handleIncrement = () => {
+    setQuantity(prev => prev + 1);
+  };
+
+  const handleDecrement = () => {
+    if (quantity > 1) {
+      setQuantity(prev => prev - 1);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
+    <div className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-center items-center sm:p-4 pt-16">
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -70,7 +81,7 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-        className="relative bg-surface w-full max-w-2xl max-h-[90vh] rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col shadow-2xl border border-surface/50"
+        className="relative bg-surface w-full max-w-2xl max-h-[85vh] rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col shadow-2xl border border-surface/50 z-10"
       >
         {/* Header Image */}
         <div className="relative h-48 sm:h-64 shrink-0">
@@ -174,9 +185,9 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-6">
                <div className="flex items-center bg-surface border border-surface rounded-2xl p-1">
-                  <button className="p-3 hover:text-accent transition-colors"><Minus size={20} /></button>
-                  <span className="w-12 text-center font-medium text-dark text-xl">1</span>
-                  <button className="p-3 hover:text-accent transition-colors"><Plus size={20} /></button>
+                  <button onClick={handleDecrement} className="p-3 hover:text-accent transition-colors"><Minus size={20} /></button>
+                  <span className="w-12 text-center font-medium text-dark text-xl">{quantity}</span>
+                  <button onClick={handleIncrement} className="p-3 hover:text-accent transition-colors"><Plus size={20} /></button>
                </div>
             </div>
             <div className="text-right">

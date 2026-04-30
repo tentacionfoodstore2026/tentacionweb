@@ -934,12 +934,16 @@ export const AdminPanel = () => {
       const { data: promoData } = await supabase.from('promotions').select('*');
       if (promoData) setCoupons(promoData);
 
-      // Fetch Orders
-      const { data: orderData } = await supabase
+      // Fetch Orders — use left join to get profile & business info
+      const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('*, profiles(name, email), businesses(name), order_items(*, products(name))')
+        .select('*, profiles!orders_user_id_fkey(name, email), businesses(name, address), order_items(*, products(name))')
         .order('created_at', { ascending: false });
-      if (orderData) setOrders(orderData);
+      if (orderError) console.error('[AdminPanel] Error fetching orders:', orderError);
+      if (orderData) {
+        console.log(`[AdminPanel] Fetched ${orderData.length} orders.`);
+        setOrders(orderData);
+      }
 
       // Fetch Portal Settings
       console.log('[AdminPanel] Fetching portal settings...');
@@ -958,7 +962,24 @@ export const AdminPanel = () => {
     };
 
     fetchData();
-  }, []);
+
+    // Realtime listener: refresh orders list when any order is inserted or updated
+    const ordersChannel = supabase
+      .channel('admin-orders-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
+        supabase
+          .from('orders')
+          .select('*, profiles!orders_user_id_fkey(name, email), businesses(name, address), order_items(*, products(name))')
+          .order('created_at', { ascending: false })
+          .then(({ data }) => { if (data) setOrders(data); });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+        setOrders(prev => prev.map(o => o.id === payload.new.id ? { ...o, ...payload.new } : o));
+      })
+      .subscribe();
+
+    return () => { ordersChannel.unsubscribe(); };
+  }, [currentUser?.id]);
 
   const handleSendNotification = async () => {
     if (!notificationForm.title || !notificationForm.message) {

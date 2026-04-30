@@ -21,7 +21,7 @@ export const Profile = () => {
         // Fetch Orders
         const { data: ordersData } = await supabase
           .from('orders')
-          .select('*, order_items(*, products(*)), businesses(name), driver:driver_id(name, phone)')
+          .select('*, order_items(*, products(*)), businesses(name), driver:profiles!orders_driver_id_fkey(name, phone)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
           
@@ -61,6 +61,19 @@ export const Profile = () => {
     if (!user) return;
     const channel = supabase
       .channel('profile-orders-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` },
+        () => {
+          // Re-fetch everything to ensure joined data is retrieved properly
+          supabase
+            .from('orders')
+            .select('*, order_items(*, products(*)), businesses(name), driver:profiles!orders_driver_id_fkey(name, phone)')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .then(({ data }) => { if (data) setOrders(data); });
+        }
+      )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` },

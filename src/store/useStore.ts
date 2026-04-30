@@ -273,7 +273,7 @@ export const useAuthStore = create<AuthState>()(
 
 interface CartState {
   items: CartItem[];
-  addItem: (product: Product, selectedSize?: ProductSize, selectedExtras?: { groupName: string; optionName: string; price: number }[]) => void;
+  addItem: (product: Product, selectedSize?: ProductSize, selectedExtras?: { groupName: string; optionName: string; price: number }[], quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -284,7 +284,7 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-      addItem: (product, selectedSize, selectedExtras) => {
+      addItem: (product, selectedSize, selectedExtras, quantity = 1) => {
         const items = get().items;
         
         // Generate a unique key for the item based on its selections
@@ -305,7 +305,7 @@ export const useCartStore = create<CartState>()(
 
         if (existingItemIndex > -1) {
           const newItems = [...items];
-          newItems[existingItemIndex].quantity += 1;
+          newItems[existingItemIndex].quantity += quantity;
           set({ items: newItems });
         } else {
           // Calculate final price based on selected size
@@ -316,7 +316,7 @@ export const useCartStore = create<CartState>()(
             items: [...items, { 
               ...product, 
               price: basePrice + extrasPrice,
-              quantity: 1, 
+              quantity: quantity, 
               selectedSize, 
               selectedExtras 
             }] 
