@@ -15,8 +15,17 @@ import { Chatbot } from './components/Chatbot';
 import { supabase } from './lib/supabase';
 
 const PrivateRoute = ({ children, role }: { children: React.ReactNode; role?: string }) => {
-  const user = useAuthStore((state) => state.user);
-  if (!user) return <Navigate to="/" />;
+  const { user, loading } = useAuthStore();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" />;
   if (user.role === 'super_admin') return <>{children}</>;
   if (role && user.role !== role) return <Navigate to="/" />;
   return <>{children}</>;
@@ -24,7 +33,7 @@ const PrivateRoute = ({ children, role }: { children: React.ReactNode; role?: st
 
 // Component to handle auth state changes and routing
 const AuthHandler = () => {
-  const setUser = useAuthStore((state) => state.setUser);
+  const { setUser, setLoading } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,6 +43,7 @@ const AuthHandler = () => {
         fetchProfile(session.user.id, session.user.email || '', session.user.user_metadata);
       } else {
         setUser(null);
+        setLoading(false);
       }
     });
 
@@ -44,8 +54,9 @@ const AuthHandler = () => {
         // Redirect based on role if they just logged in
         if (_event === 'SIGNED_IN') {
           supabase.from('profiles').select('role').eq('id', session.user.id).single().then(({ data }) => {
+            const isSuperAdmin = session.user.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
             if (data?.role === 'comercio') navigate('/merchant');
-            else if (data?.role === 'admin' || data?.role === 'super_admin') navigate('/admin');
+            else if (data?.role === 'admin' || data?.role === 'super_admin' || isSuperAdmin) navigate('/admin');
             else if (data?.role === 'repartidor') navigate('/delivery');
             else navigate('/');
           });
@@ -59,6 +70,7 @@ const AuthHandler = () => {
   }, []);
 
   const fetchProfile = async (userId: string, email: string, userMetadata?: any) => {
+    setLoading(true);
     const isSuperAdminEmail = email.toLowerCase() === 'joseluisquiroga76@gmail.com';
     try {
       console.log('[Auth] Fetching profile for:', email);
@@ -153,6 +165,8 @@ const AuthHandler = () => {
           role: 'super_admin',
           claimedPromotions: userMetadata?.claimedPromotions || [],
         });
+      } else {
+        setLoading(false);
       }
     }
   };

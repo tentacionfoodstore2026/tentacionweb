@@ -7,12 +7,13 @@ import { Business } from '../store/useStore';
 
 import { Footer } from '../components/Footer';
 
-const CATEGORIES = ['Todos', 'Pizza', 'Hamburguesas', 'Sushi', 'Empanadas', 'Postres', 'Bebidas'];
+
 
 export const Home = () => {
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [categories, setCategories] = useState<string[]>(['Todos']);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -23,38 +24,43 @@ export const Home = () => {
         console.log('[Home] Fetching businesses from Supabase...');
         const { data, error } = await supabase
           .from('businesses')
-          .select('*')
-          .eq('status', 'active');
+          .select('*');
         
         if (error) {
           console.error('[Home] Supabase error:', error.code, error.message, error.hint);
           throw error;
         }
         
-        console.log(`[Home] Supabase returned ${data?.length ?? 0} businesses`);
+        console.log(`[Home] Supabase returned ${data?.length ?? 0} businesses total`);
 
         if (!data || data.length === 0) {
           console.warn('[Home] No businesses found — run supabase-rls-fixes.sql in your Supabase SQL Editor');
         }
 
-        // Map snake_case to camelCase
+        // Map snake_case to camelCase and handle potentially null fields
         const formattedData = (data || []).map(b => ({
           id: b.id,
-          name: b.name,
-          description: b.description,
-          category: b.category,
-          image: b.image,
+          name: b.name || 'Sin nombre',
+          description: b.description || '',
+          category: b.category || 'Sin categoría',
+          image: b.image || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80',
           banner: b.banner,
           whatsapp: b.whatsapp,
           address: b.address,
-          rating: b.rating,
-          isOpen: b.is_open,
-          deliveryFee: b.delivery_fee,
-          deliveryTime: b.delivery_time,
-          status: b.status
+          rating: b.rating || 5.0,
+          isOpen: b.is_open ?? true,
+          deliveryFee: b.delivery_fee || 0,
+          deliveryTime: b.delivery_time || '30-45 min',
+          status: b.status || 'active'
         })) as Business[];
 
         setBusinesses(formattedData);
+
+        // Extract unique categories dynamically from all fetched businesses
+        const uniqueCategories = ['Todos', ...Array.from(new Set(formattedData.map(b => b.category)))].filter(Boolean);
+        setCategories(uniqueCategories);
+        console.log('[Home] Dynamic categories:', uniqueCategories);
+
       } catch (err: any) {
         console.error('[Home] Critical error fetching businesses:', err);
         setFetchError(err?.message || 'Error de conexión con Supabase');
@@ -110,7 +116,7 @@ export const Home = () => {
         {/* Categories */}
         <section className="mb-12 overflow-x-auto no-scrollbar">
           <div className="flex space-x-4 pb-2">
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type Role = 'user' | 'comercio' | 'repartidor' | 'admin' | 'super_admin';
+export type Role = 'user' | 'comercio' | 'repartidor' | 'cocina' | 'admin' | 'super_admin';
 
 export interface ClaimedPromotion {
   promoId: string;
@@ -166,6 +166,8 @@ export interface Coupon {
 
 interface AuthState {
   user: User | null;
+  loading: boolean;
+  setLoading: (loading: boolean) => void;
   setUser: (user: User | null) => void;
   logout: () => void;
   claimPromotion: (promoId: string) => void;
@@ -177,8 +179,10 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      setUser: (user) => set({ user }),
-      logout: () => set({ user: null }),
+      loading: true,
+      setLoading: (loading) => set({ loading }),
+      setUser: (user) => set({ user, loading: false }),
+      logout: () => set({ user: null, loading: false }),
       claimPromotion: async (promoId) => {
         const user = get().user;
         if (!user) return;
@@ -350,36 +354,7 @@ interface CouponState {
 export const useCouponStore = create<CouponState>()(
   persist(
     (set) => ({
-      coupons: [
-        { 
-          id: 'gc1', 
-          code: 'PLATAFORMA10', 
-          type: 'percentage', 
-          value: 10, 
-          usageCount: 150, 
-          status: 'active', 
-          businessId: 'all', 
-          description: '10% de descuento global en todo el marketplace.',
-          startDate: '2024-01-01',
-          endDate: '2026-12-31',
-          startTime: '00:00',
-          endTime: '23:59'
-        },
-        { 
-          id: 'c1', 
-          code: 'BIENVENIDO15', 
-          type: 'percentage', 
-          value: 15, 
-          usageCount: 45, 
-          status: 'active', 
-          businessId: 'biz-1', 
-          description: '15% de descuento para nuevos clientes.',
-          startDate: '2024-01-01',
-          endDate: '2026-12-31',
-          startTime: '00:00',
-          endTime: '23:59'
-        },
-      ],
+      coupons: [],
       addCoupon: (coupon) => set((state) => ({ coupons: [...state.coupons, coupon] })),
       updateCoupon: (coupon) => set((state) => ({
         coupons: state.coupons.map((c) => (c.id === coupon.id ? coupon : c)),
@@ -407,49 +382,7 @@ interface OrderState {
 export const useOrderStore = create<OrderState>()(
   persist(
     (set) => ({
-      orders: [
-        {
-          id: '101',
-          userId: 'user-1',
-          customerName: 'Juan Pérez',
-          businessId: 'biz-1',
-          items: [
-            { productId: 'p1', name: 'Pizza Margherita', price: 1200, quantity: 2 }
-          ],
-          total: 2400,
-          status: 'delivered',
-          createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
-          pointClaimed: true,
-        },
-        {
-          id: '102',
-          userId: 'user-2',
-          customerName: 'María García',
-          businessId: 'biz-1',
-          items: [
-            { productId: 'p2', name: 'Hamburguesa Especial', price: 1800, quantity: 1 },
-            { productId: 'p3', name: 'Papas Fritas XL', price: 600, quantity: 1 }
-          ],
-          total: 2400,
-          status: 'confirmed',
-          createdAt: new Date(Date.now() - 45 * 60000).toISOString(),
-          pointClaimed: false,
-        },
-        {
-          id: '103',
-          userId: 'user-3',
-          customerName: 'Carlos López',
-          businessId: 'biz-1',
-          items: [
-            { productId: 'p4', name: 'Coca Cola 500ml', price: 300, quantity: 2 },
-            { productId: 'p1', name: 'Pizza Margherita', price: 1200, quantity: 1 }
-          ],
-          total: 1800,
-          status: 'pending',
-          createdAt: new Date(Date.now() - 120 * 60000).toISOString(),
-          pointClaimed: false,
-        }
-      ],
+      orders: [],
       addOrder: (order) => set((state) => ({ orders: [order, ...state.orders] })),
       updateOrderStatus: (id, status) => set((state) => ({
         orders: state.orders.map((o) => o.id === id ? { ...o, status } : o)
@@ -473,60 +406,7 @@ interface DriverState {
 export const useDriverStore = create<DriverState>()(
   persist(
     (set) => ({
-      drivers: [
-        {
-          id: 'drv-1',
-          name: 'Carlos Rodríguez',
-          email: 'carlos.r@email.com',
-          phone: '1122334455',
-          dni: '35.123.456',
-          address: 'Calle Falsa 123, CABA',
-          avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
-          status: 'active',
-          rating: 4.9,
-          totalDeliveries: 156,
-          licenseNumber: 'AB-12345678',
-          licenseType: 'A.3 (Motos)',
-          licenseExpiry: '2026-10-15',
-          vehicle: {
-            type: 'moto',
-            model: 'Honda GLH 150',
-            plate: '123 ABC',
-            color: 'Rojo',
-            year: '2023',
-            insurancePolicy: 'RU-987654321',
-            insuranceExpiry: '2025-01-20'
-          },
-          balance: 15400,
-          joinedAt: '2023-05-10T10:00:00Z'
-        },
-        {
-          id: 'drv-2',
-          name: 'Ana Belén Martínez',
-          email: 'ana.bm@email.com',
-          phone: '1199887766',
-          dni: '40.987.654',
-          address: 'Av. Siempre Viva 742, CABA',
-          avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
-          status: 'inactive',
-          rating: 4.7,
-          totalDeliveries: 89,
-          licenseNumber: 'CD-87654321',
-          licenseType: 'B.1 (Autos)',
-          licenseExpiry: '2025-12-31',
-          vehicle: {
-            type: 'auto',
-            model: 'Fiat Cronos',
-            plate: 'XY 456 ZW',
-            color: 'Blanco',
-            year: '2022',
-            insurancePolicy: 'ST-123456789',
-            insuranceExpiry: '2024-11-15'
-          },
-          balance: 8200,
-          joinedAt: '2023-08-15T14:30:00Z'
-        }
-      ],
+      drivers: [],
       addDriver: (driver) => set((state) => ({ drivers: [driver, ...state.drivers] })),
       updateDriver: (driver) => set((state) => ({
         drivers: state.drivers.map((d) => (d.id === driver.id ? driver : d)),

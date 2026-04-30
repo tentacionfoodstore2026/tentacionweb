@@ -24,7 +24,7 @@ create table public.profiles (
   id uuid references auth.users on delete cascade not null primary key,
   name text,
   email text,
-  role text check (role in ('user', 'comercio', 'repartidor', 'admin', 'super_admin')) default 'user',
+  role text check (role in ('user', 'comercio', 'repartidor', 'cocina', 'admin', 'super_admin')) default 'user',
   business_id uuid, -- Se vincularÃ¡ a businesses(id) mÃ¡s adelante
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -155,7 +155,7 @@ begin
     new.email, 
     new.raw_user_meta_data->>'name', 
     case 
-      when new.email = 'joseluisquiroga76@gmail.com' then 'super_admin'
+      when new.email IN ('tentacionfoodstore2026@gmail.com', 'joseluisquiroga76@gmail.com') then 'super_admin'
       else coalesce(new.raw_user_meta_data->>'role', 'user')
     end
   );
@@ -166,3 +166,31 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+-- ============================================================================
+-- 8. Crear tabla de Configuración del Portal (Portal Settings)
+-- ============================================================================
+create table if not exists public.portal_settings (
+  id uuid default '00000000-0000-0000-0000-000000000000' primary key,
+  name text default 'Tentacion Food Store',
+  support_email text default 'soporte@tentacion.com',
+  support_phone text default '+58 412 000 0000',
+  address text default 'Arica, Chile',
+  maintenance_mode boolean default false,
+  primary_color text default '#fbbf24',
+  logo_url text,
+  favicon_url text,
+  google_maps_key text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Insertar valores por defecto si no existen
+INSERT INTO public.portal_settings (id) VALUES ('00000000-0000-0000-0000-000000000000') ON CONFLICT (id) DO NOTHING;
+
+-- Habilitar RLS
+alter table public.portal_settings enable row level security;
+
+-- Política de lectura pública
+create policy "Lectura pública de configuracion" on public.portal_settings for select using (true);
+
+-- Política de actualización solo para super_admins
+create policy "Super Admins pueden actualizar la configuracion" on public.portal_settings for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'super_admin'));

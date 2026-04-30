@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Store, ShieldCheck, Search, MoreVertical, CheckCircle, XCircle, Trash2, Edit, Filter, Save, X, Image as ImageIcon, Clock, Truck, MapPin, Phone, Settings, Tag, Plus, Printer, Menu as MenuIcon, Calendar, CreditCard, Hash, User, Star, Mail, Info, ClipboardList, UtensilsCrossed, Bell, Send, DollarSign, TrendingUp, ShoppingBag, ChefHat, LayoutDashboard } from 'lucide-react';
+import { Users, Store, ShieldCheck, Search, MoreVertical, CheckCircle, XCircle, Trash2, Edit, Filter, Save, X, Image as ImageIcon, Clock, Truck, MapPin, Phone, Settings, Tag, Plus, Printer, Menu as MenuIcon, Calendar, CreditCard, Hash, User, Star, Mail, Info, ClipboardList, UtensilsCrossed, Bell, Send, DollarSign, TrendingUp, ShoppingBag, ChefHat, LayoutDashboard, Eye, EyeOff, Shield, Database, Upload, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { Business, Coupon, useAuthStore, Role, Driver, useDriverStore } from '../store/useStore';
@@ -82,14 +82,26 @@ const AdministrationSection: React.FC<AdminSectionProps> = ({
   updateUserRole,
   toggleUserStatus 
 }) => {
+  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
   const [search, setSearch] = useState('');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [pendingRole, setPendingRole] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [filterRole, setFilterRole] = useState<string>('all');
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'user'
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
 
   const filteredUsers = users.filter(u => {
+    // Super admins are completely invisible to non-super_admin users
+    if (u.role === 'super_admin' && !isSuperAdmin) return false;
     const matchSearch =
       u.name?.toLowerCase().includes(search.toLowerCase()) ||
       u.email?.toLowerCase().includes(search.toLowerCase());
@@ -118,6 +130,43 @@ const AdministrationSection: React.FC<AdminSectionProps> = ({
     }
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUser.email || !newUser.password || !newUser.name) {
+      alert('⚠️ Por favor completa todos los campos.');
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      // Intentar crear el usuario en Auth
+      const { data, error } = await supabase.auth.signUp({
+        email: newUser.email,
+        password: newUser.password,
+        options: {
+          data: {
+            name: newUser.name,
+            role: newUser.role
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      alert(`✅ Usuario ${newUser.name} creado con éxito. \n\nIMPORTANTE: Si la página se recarga, por favor inicia sesión nuevamente con tu cuenta de Admin.`);
+      setShowAddUserModal(false);
+      setNewUser({ name: '', email: '', password: '', role: 'user' });
+      
+      // Intentar recargar la lista de usuarios
+      window.location.reload(); 
+    } catch (error: any) {
+      console.error('Error creando usuario:', error);
+      alert('❌ Error al crear usuario: ' + error.message);
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
   const roleCounts = ROLE_DEFINITIONS.map(r => ({
     ...r,
     count: users.filter(u => u.role === r.id).length,
@@ -127,11 +176,17 @@ const AdministrationSection: React.FC<AdminSectionProps> = ({
     <div className="space-y-10 mb-12">
       {/* Stats bar Premium */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {roleCounts.map(r => (
+        {roleCounts.map(r => {
+          // Non-super_admins can see the count of super admins, but cannot click to filter/reveal them
+          const isProtected = r.id === 'super_admin' && !isSuperAdmin;
+          return (
           <button
             key={r.id}
-            onClick={() => setFilterRole(prev => prev === r.id ? 'all' : r.id)}
+            onClick={() => !isProtected && setFilterRole(prev => prev === r.id ? 'all' : r.id)}
+            disabled={isProtected}
+            title={isProtected ? 'Acceso restringido — Solo Super Admin' : undefined}
             className={`relative overflow-hidden rounded-2xl border-2 p-5 transition-all group ${
+              isProtected ? 'cursor-not-allowed opacity-80' :
               filterRole === r.id 
                 ? r.activeColor + ' shadow-2xl shadow-dark/20 scale-[1.02]' 
                 : r.color + ' border-transparent hover:border-surface hover:shadow-xl'
@@ -141,32 +196,46 @@ const AdministrationSection: React.FC<AdminSectionProps> = ({
               <span className="text-3xl mb-3 block transform group-hover:scale-110 transition-transform duration-300">{r.icon}</span>
               <p className="text-2xl font-medium  leading-none mb-1">{r.count}</p>
               <p className="text-[9px] font-medium uppercase tracking-[0.2em] opacity-60">{r.label}</p>
+              {isProtected && (
+                <p className="text-[8px] font-bold uppercase tracking-widest opacity-50 mt-1">🔒 Restringido</p>
+              )}
             </div>
             {/* Background Decorative Element */}
             <div className={`absolute -right-2 -bottom-2 w-16 h-16 rounded-full opacity-10 blur-xl ${filterRole === r.id ? 'bg-white' : 'bg-dark'}`} />
           </button>
-        ))}
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
         {/* User List Panel (7/12) */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-surface shadow-2xl shadow-dark/5 overflow-hidden flex flex-col h-[700px]">
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-surface shadow-2xl shadow-dark/5 overflow-hidden flex flex-col h-[600px] lg:h-[750px]">
           <div className="p-8 border-b border-surface bg-gradient-to-br from-surface/50 to-transparent">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="text-xl font-medium text-dark tracking-tight uppercase">Directorio de Usuarios</h3>
                 <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-1">Gestión de accesos y estatus</p>
               </div>
-              <div className="relative flex-1 md:max-w-xs">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o email..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full bg-surface border-2 border-transparent rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-primary/50 focus:bg-white transition-all"
-                />
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setShowAddUserModal(true)}
+                  className="bg-primary text-dark px-4 py-3 rounded-2xl font-bold text-xs flex items-center space-x-2 hover:bg-accent transition-all shadow-lg shadow-primary/20"
+                >
+                  <Plus size={16} />
+                  <span>NUEVO USUARIO</span>
+                </button>
+
+                <div className="relative flex-1 md:max-w-xs">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nombre o email..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="w-full bg-surface border-2 border-transparent rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-primary/50 focus:bg-white transition-all"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -255,8 +324,9 @@ const AdministrationSection: React.FC<AdminSectionProps> = ({
               key={selectedUser.id}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-2xl border border-surface shadow-2xl shadow-dark/5 overflow-hidden sticky top-24"
+              className="bg-white rounded-2xl border border-surface shadow-2xl shadow-dark/5 overflow-hidden sticky top-24 max-h-[calc(100vh-120px)] flex flex-col"
             >
+              <div className="flex-1 overflow-y-auto scrollbar-hide p-0">
               {/* User Profile Summary */}
               <div className="p-8 border-b border-surface relative">
                 {/* Decorative background */}
@@ -318,7 +388,7 @@ const AdministrationSection: React.FC<AdminSectionProps> = ({
                     {ROLE_DEFINITIONS.map(role => {
                       const isActive = pendingRole === role.id;
                       const isCurrent = selectedUser.role === role.id;
-                      const isRestricted = role.id === 'super_admin' && currentUser?.role !== 'super_admin';
+                      const isRestricted = role.id === 'super_admin' && !isSuperAdmin;
                       
                       return (
                         <button
@@ -372,11 +442,155 @@ const AdministrationSection: React.FC<AdminSectionProps> = ({
                     )}
                   </button>
                 </div>
+                </div>
               </div>
             </motion.div>
           )}
         </div>
       </div>
+
+      {/* Add User Modal */}
+      <AnimatePresence>
+        {showAddUserModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-4 bg-dark/60 backdrop-blur-sm overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl flex flex-col h-full max-h-[95vh] md:max-h-[85vh] overflow-hidden border border-white/20"
+            >
+              {/* Fixed Header */}
+              <div className="p-6 border-b border-surface flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent shrink-0">
+                <div>
+                  <h3 className="text-lg font-bold text-dark uppercase tracking-tight">Crear Nuevo Usuario</h3>
+                  <p className="text-[9px] text-muted font-bold uppercase tracking-widest mt-1">Registrar personal o clientes</p>
+                </div>
+                <button 
+                  onClick={() => setShowAddUserModal(false)}
+                  className="p-2.5 hover:bg-surface rounded-xl transition-colors text-muted"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateUser} className="flex flex-col flex-1 overflow-hidden">
+                {/* Scrollable Body */}
+                <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 scrollbar-hide">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[9px] font-bold text-muted uppercase tracking-widest mb-1.5 ml-1">Nombre Completo</label>
+                      <div className="relative">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={16} />
+                        <input
+                          type="text"
+                          required
+                          value={newUser.name}
+                          onChange={e => setNewUser({ ...newUser, name: e.target.value })}
+                          placeholder="Ej: Juan Pérez"
+                          className="w-full bg-surface border-2 border-transparent rounded-xl py-3 pl-11 pr-4 text-xs font-medium focus:outline-none focus:border-primary/50 focus:bg-white transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-bold text-muted uppercase tracking-widest mb-1.5 ml-1">Correo Electrónico</label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={16} />
+                        <input
+                          type="email"
+                          required
+                          value={newUser.email}
+                          onChange={e => setNewUser({ ...newUser, email: e.target.value })}
+                          placeholder="email@ejemplo.com"
+                          className="w-full bg-surface border-2 border-transparent rounded-xl py-3 pl-11 pr-4 text-xs font-medium focus:outline-none focus:border-primary/50 focus:bg-white transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-bold text-muted uppercase tracking-widest mb-1.5 ml-1">Contraseña Temporal</label>
+                      <div className="relative">
+                        <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={16} />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          minLength={6}
+                          value={newUser.password}
+                          onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                          placeholder="Mínimo 6 caracteres"
+                          className="w-full bg-surface border-2 border-transparent rounded-xl py-3 pl-11 pr-11 text-xs font-medium focus:outline-none focus:border-primary/50 focus:bg-white transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-dark transition-colors"
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-bold text-muted uppercase tracking-widest mb-1.5 ml-1">Rol Asignado</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {ROLE_DEFINITIONS.filter(r => r.id !== 'super_admin' || isSuperAdmin).map(role => (
+                          <button
+                            key={role.id}
+                            type="button"
+                            onClick={() => setNewUser({ ...newUser, role: role.id })}
+                            className={`flex items-center space-x-2 p-2.5 rounded-xl border-2 transition-all text-[10px] font-medium uppercase ${
+                              newUser.role === role.id 
+                                ? 'bg-dark border-dark text-white' 
+                                : 'bg-white border-surface hover:border-primary/30 text-dark'
+                            }`}
+                          >
+                            <span>{role.icon}</span>
+                            <span className="truncate">{role.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                    <div className="flex space-x-3">
+                      <Info className="text-amber-600 shrink-0" size={16} />
+                      <p className="text-[9px] text-amber-800 font-medium leading-relaxed">
+                        NOTA: Por seguridad, serás desconectado de tu sesión actual al crear un usuario nuevo.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fixed Footer */}
+                <div className="p-6 border-t border-surface bg-surface/30 flex gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddUserModal(false)}
+                    className="flex-1 bg-white border border-surface text-muted font-bold py-3.5 rounded-xl hover:bg-surface transition-all text-[10px] uppercase tracking-widest"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingUser}
+                    className="flex-[2] bg-primary hover:bg-accent text-dark font-bold py-3.5 rounded-xl transition-all disabled:opacity-40 flex items-center justify-center space-x-2 shadow-xl shadow-primary/20 text-[10px] uppercase tracking-widest"
+                  >
+                    {creatingUser ? (
+                      <div className="w-5 h-5 border-2 border-dark border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Plus size={16} />
+                        <span>Crear Usuario</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -651,7 +865,10 @@ const DashboardContent: React.FC<{
 
 export const AdminPanel = () => {
   const [activeTab, setActiveTab] = React.useState('dashboard');
-  const [settingsTab, setSettingsTab] = React.useState('general');
+  const [settingsTab, setSettingsTab] = React.useState('portal');
+  const [showSupabaseKey, setShowSupabaseKey] = React.useState(false);
+  const [showMapsKey, setShowMapsKey] = React.useState(false);
+  const [mapsApiKey, setMapsApiKey] = React.useState('');
   const [businesses, setBusinesses] = React.useState<any[]>([]);
   const [users, setUsers] = React.useState<any[]>([]);
   const [coupons, setCoupons] = React.useState<any[]>([]);
@@ -664,6 +881,8 @@ export const AdminPanel = () => {
   const [isSaving, setIsSaving] = React.useState(false);
   const [isEditingMenu, setIsEditingMenu] = React.useState(false);
   const [activeBusinessForMenu, setActiveBusinessForMenu] = React.useState<Business | null>(null);
+  const { user: currentUser } = useAuthStore();
+  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
   const { drivers, addDriver, updateDriver, deleteDriver, toggleDriverStatus } = useDriverStore();
   const [isEditingDriver, setIsEditingDriver] = useState(false);
   const [currentDriver, setCurrentDriver] = useState<Partial<Driver> | null>(null);
@@ -676,11 +895,27 @@ export const AdminPanel = () => {
     link: ''
   });
 
+  const [portalSettings, setPortalSettings] = useState({
+    name: 'Tentacion Food Store',
+    support_email: 'soporte@tentacion.com',
+    support_phone: '+58 412 000 0000',
+    address: 'Arica, Chile',
+    maintenance_mode: false,
+    primary_color: '#fbbf24',
+    logo_url: '',
+    favicon_url: '',
+    google_maps_key: ''
+  });
+
   useEffect(() => {
     const fetchData = async () => {
+      console.log('[AdminPanel] Fetching data from Supabase...');
       // Fetch Businesses
-      const { data: bizData } = await supabase.from('businesses').select('*');
+      const { data: bizData, error: bizError } = await supabase.from('businesses').select('*');
+      if (bizError) console.error('[AdminPanel] Error fetching businesses:', bizError);
+      
       if (bizData) {
+        console.log(`[AdminPanel] Fetched ${bizData.length} businesses.`);
         const mappedBiz = bizData.map(b => ({
           ...b,
           deliveryFee: b.delivery_fee,
@@ -705,6 +940,21 @@ export const AdminPanel = () => {
         .select('*, profiles(name, email), businesses(name), order_items(*, products(name))')
         .order('created_at', { ascending: false });
       if (orderData) setOrders(orderData);
+
+      // Fetch Portal Settings
+      console.log('[AdminPanel] Fetching portal settings...');
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('portal_settings')
+        .select('*')
+        .eq('id', '00000000-0000-0000-0000-000000000000')
+        .single();
+      
+      if (settingsError) {
+        console.warn('[AdminPanel] Could not fetch portal settings (table might be missing):', settingsError.message);
+      } else if (settingsData) {
+        setPortalSettings(settingsData);
+        if (settingsData.google_maps_key) setMapsApiKey(settingsData.google_maps_key);
+      }
     };
 
     fetchData();
@@ -736,6 +986,49 @@ export const AdminPanel = () => {
     } catch (error) {
       console.error('Error enviando notificación:', error);
       alert('❌ Error al enviar la notificación.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSavePortalSettings = async () => {
+    try {
+      setIsSaving(true);
+      console.log('[AdminPanel] Saving portal settings:', portalSettings);
+      
+      let finalLogoUrl = portalSettings.logo_url;
+      let finalFaviconUrl = portalSettings.favicon_url;
+
+      if (finalLogoUrl && finalLogoUrl.startsWith('data:image')) {
+        finalLogoUrl = await uploadImageToStorage(finalLogoUrl, 'branding');
+      }
+      if (finalFaviconUrl && finalFaviconUrl.startsWith('data:image')) {
+        finalFaviconUrl = await uploadImageToStorage(finalFaviconUrl, 'branding');
+      }
+
+      const { error } = await supabase
+        .from('portal_settings')
+        .upsert({
+          id: '00000000-0000-0000-0000-000000000000',
+          ...portalSettings,
+          logo_url: finalLogoUrl,
+          favicon_url: finalFaviconUrl,
+          google_maps_key: mapsApiKey
+        });
+
+      if (error) throw error;
+      
+      // Actualizar estado local con las URLs finales de Storage
+      setPortalSettings(prev => ({
+        ...prev,
+        logo_url: finalLogoUrl,
+        favicon_url: finalFaviconUrl
+      }));
+      
+      alert('✅ Configuración guardada correctamente.');
+    } catch (error: any) {
+      console.error('Error saving portal settings:', error);
+      alert(`❌ Error al guardar: ${error.message || 'Verifica la consola'}. Asegúrate de haber ejecutado el SQL de portal_settings.`);
     } finally {
       setIsSaving(false);
     }
@@ -878,10 +1171,10 @@ export const AdminPanel = () => {
     }
   };
 
-  const { user: currentUser } = useAuthStore();
+
 
   const updateUserRole = async (id: string, newRole: Role) => {
-    if (currentUser?.role !== 'super_admin') {
+    if (!isSuperAdmin) {
       alert('Solo el Super Admin puede cambiar roles.');
       return;
     }
@@ -1034,10 +1327,13 @@ export const AdminPanel = () => {
     b.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredUsers = users.filter(u => 
-    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users
+    // Si no es super_admin, ocultar usuarios con rol super_admin de la lista
+    .filter(u => isSuperAdmin || u.role !== 'super_admin')
+    .filter(u =>
+      u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     const { error } = await supabase
@@ -1118,35 +1414,59 @@ export const AdminPanel = () => {
       </style>
       {/* Sidebar */}
       <aside className="w-64 bg-surface border-r border-surface hidden md:flex flex-col fixed h-full pt-20">
-        <div className="px-6 mb-8">
-          <h2 className="text-xs font-medium text-muted uppercase tracking-widest">Administración</h2>
+        <div className="px-6 mb-6">
+          <h2 className="text-xs font-medium text-muted uppercase tracking-widest">Panel Admin</h2>
         </div>
-        <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-          {[
-            { id: 'dashboard', label: 'Resumen', icon: LayoutDashboard },
-            { id: 'businesses', label: 'Comercios', icon: Store },
-            { id: 'users', label: 'Usuarios', icon: Users },
-            { id: 'orders', label: 'Pedidos', icon: ClipboardList },
-            { id: 'kitchen', label: 'Cocina', icon: UtensilsCrossed },
-            { id: 'drivers', label: 'Conductores', icon: Truck },
-            { id: 'discounts', label: 'Descuentos', icon: Tag },
-            { id: 'notifications', label: 'Notificaciones', icon: Bell },
-            { id: 'administration', label: 'Administración', icon: ShieldCheck },
-            { id: 'settings', label: 'Configuración', icon: Settings },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg font-medium transition-all ${
-                activeTab === item.id 
-                  ? 'bg-primary/10 text-accent' 
-                  : 'text-muted hover:bg-surface'
-              }`}
-            >
-              <item.icon size={20} />
-              <span>{item.label}</span>
-            </button>
-          ))}
+        <nav className="flex-1 px-4 overflow-y-auto pb-6 flex flex-col">
+          <div className="space-y-1">
+            {[
+              { id: 'dashboard', label: 'Resumen', icon: LayoutDashboard },
+              { id: 'businesses', label: 'Comercios', icon: Store },
+              { id: 'users', label: 'Usuarios', icon: Users },
+              { id: 'orders', label: 'Pedidos', icon: ClipboardList },
+              { id: 'kitchen', label: 'Cocina', icon: UtensilsCrossed },
+              { id: 'drivers', label: 'Conductores', icon: Truck },
+              { id: 'discounts', label: 'Descuentos', icon: Tag },
+              { id: 'notifications', label: 'Notificaciones', icon: Bell },
+              { id: 'administration', label: 'Administración', icon: ShieldCheck },
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg font-medium transition-all text-sm ${
+                  activeTab === item.id
+                    ? 'bg-primary/10 text-accent'
+                    : 'text-muted hover:bg-surface hover:text-dark'
+                }`}
+              >
+                <item.icon size={18} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {isSuperAdmin && (
+            <div className="mt-4 pt-3 border-t border-surface space-y-1">
+              <p className="text-[9px] font-bold text-muted/60 uppercase tracking-[0.2em] px-4 pb-1">Super Admin</p>
+              {[
+                { id: 'settings', label: 'Configuración', icon: Settings },
+                { id: 'logs', label: 'Logs del Sistema', icon: Hash },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg font-medium transition-all text-sm ${
+                    activeTab === item.id
+                      ? 'bg-primary/10 text-accent'
+                      : 'text-muted hover:bg-surface hover:text-dark'
+                  }`}
+                >
+                  <item.icon size={18} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </nav>
       </aside>
 
@@ -1164,7 +1484,8 @@ export const AdminPanel = () => {
                  activeTab === 'drivers' ? 'Gestión de Conductores' : 
                  activeTab === 'discounts' ? 'Gestión de Descuentos' : 
                  activeTab === 'notifications' ? 'Centro de Notificaciones' : 
-                 activeTab === 'administration' ? 'Administración de Accesos' : 'Configuración Global'}
+                 activeTab === 'administration' ? 'Administración de Accesos' : 
+                 activeTab === 'logs' ? 'Logs de Actividad' : 'Configuración Global'}
               </h1>
               <p className="text-muted">
                 {activeTab === 'dashboard' ? 'Visualiza el rendimiento general de tu negocio en tiempo real.' :
@@ -1175,7 +1496,8 @@ export const AdminPanel = () => {
                  activeTab === 'drivers' ? 'Administra a los repartidores activos de la plataforma.' : 
                  activeTab === 'discounts' ? 'Crea y gestiona cupones globales.' : 
                  activeTab === 'notifications' ? 'Envía mensajes y promociones push a tus usuarios.' : 
-                 activeTab === 'administration' ? 'Asigna roles y permisos de acceso a los usuarios del sistema.' : 'Ajustes del sistema.'}
+                 activeTab === 'administration' ? 'Asigna roles y permisos de acceso a los usuarios del sistema.' : 
+                 activeTab === 'logs' ? 'Registro detallado de acciones y eventos del sistema.' : 'Ajustes del sistema.'}
               </p>
             </div>
             <div className="flex items-center space-x-4">
@@ -1366,64 +1688,95 @@ export const AdminPanel = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-surface">
-                      {filteredUsers.map((user) => (
+                      {filteredUsers.map((user) => {
+                        // Un super_admin solo es visible/editable por otro super_admin
+                        const isProtectedSuperAdmin = user.role === 'super_admin' && !isSuperAdmin;
+                        return (
                         <tr key={user.id} className="hover:bg-surface transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center font-medium text-muted">
-                                {user.name.charAt(0)}
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-medium ${
+                                isProtectedSuperAdmin ? 'bg-amber-100 text-amber-600' : 'bg-surface text-muted'
+                              }`}>
+                                {isProtectedSuperAdmin ? '👑' : user.name.charAt(0)}
                               </div>
-                              <span className="font-medium text-dark">{user.name}</span>
+                              <div>
+                                <span className="font-medium text-dark">
+                                  {isProtectedSuperAdmin ? 'Super Administrador' : user.name}
+                                </span>
+                                {isProtectedSuperAdmin && (
+                                  <p className="text-[10px] text-amber-500 font-medium">Cuenta protegida del sistema</p>
+                                )}
+                              </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-muted font-medium">{user.email}</td>
+                          <td className="px-6 py-4 text-muted font-medium">
+                            {isProtectedSuperAdmin
+                              ? <span className="tracking-widest text-amber-400 select-none">••••••@••••••.•••</span>
+                              : user.email
+                            }
+                          </td>
                           <td className="px-6 py-4">
-                            {currentUser?.role === 'super_admin' ? (
+                            {isSuperAdmin ? (
                               <select 
                                 value={user.role}
                                 onChange={(e) => updateUserRole(user.id, e.target.value as Role)}
                                 className="bg-surface border border-surface rounded-md text-[10px] font-medium uppercase p-1 focus:outline-none"
                               >
                                 <option value="user">Cliente</option>
+                                <option value="repartidor">Conductor</option>
+                                <option value="cocina">Cocina</option>
                                 <option value="comercio">Comercio</option>
-                                <option value="repartidor">Repartidor</option>
                                 <option value="admin">Admin</option>
                                 <option value="super_admin">Super Admin</option>
                               </select>
                             ) : (
                               <span className={`px-2 py-1 rounded-md text-[10px] font-medium uppercase ${
-                                user.role === 'super_admin' ? 'bg-red-100 text-red-700' :
+                                user.role === 'super_admin' ? 'bg-amber-100 text-amber-700' :
                                 user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 
-                                user.role === 'comercio' ? 'bg-primary/20 text-accent' : 'bg-surface text-muted'
+                                user.role === 'cocina' ? 'bg-blue-100 text-blue-700' :
+                                user.role === 'repartidor' ? 'bg-orange-100 text-orange-700' :
+                                user.role === 'comercio' ? 'bg-amber-100 text-amber-700' : 'bg-surface text-muted'
                               }`}>
-                                {user.role}
+                                {user.role === 'super_admin' ? '👑 Super Admin' : user.role}
                               </span>
                             )}
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-medium uppercase ${
-                              user.status === 'active' ? 'bg-primary/20 text-accent' : 'bg-red-100 text-red-700'
-                            }`}>
-                              {user.status === 'active' ? 'Activo' : 'Inactivo'}
-                            </span>
+                            {isProtectedSuperAdmin ? (
+                              <span className="px-3 py-1 rounded-full text-[10px] font-medium uppercase bg-amber-100 text-amber-700">
+                                🔒 Protegido
+                              </span>
+                            ) : (
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-medium uppercase ${
+                                user.status === 'active' ? 'bg-primary/20 text-accent' : 'bg-red-100 text-red-700'
+                              }`}>
+                                {user.status === 'active' ? 'Activo' : 'Inactivo'}
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-right no-print">
-                            <div className="flex items-center justify-end space-x-2">
-                              <button 
-                                onClick={() => toggleUserStatus(user.id)}
-                                className={`p-2 rounded-lg transition-colors ${
-                                  user.status === 'active' ? 'text-red-500 hover:bg-red-50' : 'text-accent hover:bg-primary/10'
-                                }`}
-                              >
-                                {user.status === 'active' ? <XCircle size={20} /> : <CheckCircle size={20} />}
-                              </button>
-                              <button className="p-2 text-muted hover:text-red-600 transition-colors">
-                                <Trash2 size={20} />
-                              </button>
-                            </div>
+                            {isProtectedSuperAdmin ? (
+                              <span className="text-[10px] text-muted italic">Sin acceso</span>
+                            ) : (
+                              <div className="flex items-center justify-end space-x-2">
+                                <button 
+                                  onClick={() => toggleUserStatus(user.id)}
+                                  className={`p-2 rounded-lg transition-colors ${
+                                    user.status === 'active' ? 'text-red-500 hover:bg-red-50' : 'text-accent hover:bg-primary/10'
+                                  }`}
+                                >
+                                  {user.status === 'active' ? <XCircle size={20} /> : <CheckCircle size={20} />}
+                                </button>
+                                <button className="p-2 text-muted hover:text-red-600 transition-colors">
+                                  <Trash2 size={20} />
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
@@ -1947,6 +2300,56 @@ export const AdminPanel = () => {
             </div>
           )}
 
+          {activeTab === 'logs' && (
+            <div className="bg-white rounded-2xl border border-surface shadow-sm overflow-hidden mb-12">
+              <div className="p-6 border-b border-surface flex items-center justify-between">
+                <h2 className="text-xl font-medium text-dark">Historial de Eventos</h2>
+                <div className="flex items-center space-x-2 text-xs font-medium text-muted">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  <span>Monitoreo en tiempo real</span>
+                </div>
+              </div>
+              <div className="p-0">
+                <table className="w-full text-left">
+                  <thead className="bg-surface border-b border-surface">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-medium text-muted uppercase tracking-widest">Evento</th>
+                      <th className="px-6 py-4 text-xs font-medium text-muted uppercase tracking-widest">Usuario</th>
+                      <th className="px-6 py-4 text-xs font-medium text-muted uppercase tracking-widest">IP / Origen</th>
+                      <th className="px-6 py-4 text-xs font-medium text-muted uppercase tracking-widest text-right">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface">
+                    {orders.slice(0, 5).map((order, i) => (
+                      <tr key={i} className="hover:bg-surface/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-primary/10 text-accent rounded-lg">
+                              <Hash size={14} />
+                            </div>
+                            <span className="font-medium text-dark text-sm">
+                              {order.status === 'pending' ? 'Nuevo Pedido' : 
+                               order.status === 'confirmed' ? 'Pedido Confirmado' : 
+                               order.status === 'delivered' ? 'Pedido Entregado' : 'Actualización de Pedido'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted font-medium">{order.profiles?.email || 'Sistema'}</td>
+                        <td className="px-6 py-4 text-xs font-mono text-muted">ID: {order.id.slice(0, 8)}</td>
+                        <td className="px-6 py-4 text-right text-xs text-muted font-medium">
+                          {new Date(order.created_at).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-4 bg-surface/30 text-center border-t border-surface">
+                <button className="text-accent text-xs font-bold hover:underline">Cargar más registros antiguos</button>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'administration' && (
             <AdministrationSection
               users={users}
@@ -1956,17 +2359,14 @@ export const AdminPanel = () => {
             />
           )}
 
-          {activeTab === 'settings' && (
-            <div className="bg-surface rounded-2xl border border-surface shadow-sm p-8">
-              <div className="flex border-b border-surface mb-6 overflow-x-auto scrollbar-hide">
+          {activeTab === 'settings' && isSuperAdmin && (
+            <div className="space-y-6">
+              {/* Tab Navigation */}
+              <div className="flex border-b border-surface overflow-x-auto scrollbar-hide">
                 {[
-                  { id: 'general', label: 'General' },
-                  { id: 'integrations', label: 'Integraciones & APIs' },
-                  { id: 'roles', label: 'Roles & Permisos' },
-                  { id: 'legal', label: 'Legal & Privacidad' },
-                  { id: 'notificaciones', label: 'Notificaciones' },
-                  { id: 'pagos', label: 'Pagos' },
-                  { id: 'apariencia', label: 'Apariencia' }
+                  { id: 'portal', label: '🏪 Datos del Portal' },
+                  { id: 'branding', label: '🎨 Identidad Gráfica' },
+                  { id: 'apis', label: '🔑 Credenciales' },
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -1982,145 +2382,305 @@ export const AdminPanel = () => {
                 ))}
               </div>
 
-              {settingsTab === 'general' && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-dark mb-2">Nombre del Marketplace</label>
-                      <input type="text" defaultValue="Tentacion Food Store" className="w-full bg-surface border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium text-dark" />
+              {/* ── TAB 1: Datos del Portal ── */}
+              {settingsTab === 'portal' && (
+                <div className="max-w-3xl space-y-8">
+                  <div className="bg-surface rounded-2xl border border-surface p-6 space-y-5">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <div className="w-8 h-8 bg-primary/10 rounded-xl flex items-center justify-center">
+                        <Store size={16} className="text-primary" />
+                      </div>
+                      <h3 className="font-bold text-dark text-sm uppercase tracking-widest">Datos del Portal</h3>
                     </div>
+
                     <div>
-                      <label className="block text-sm font-medium text-dark mb-2">Email de Soporte</label>
-                      <input type="email" defaultValue="soporte@tentacion.com" className="w-full bg-surface border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium text-dark" />
+                      <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-2">Nombre del Marketplace</label>
+                      <input
+                        type="text"
+                        value={portalSettings.name}
+                        onChange={e => setPortalSettings({...portalSettings, name: e.target.value})}
+                        className="w-full bg-white border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium text-dark text-sm"
+                      />
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-surface/50 rounded-2xl border border-surface">
+
                     <div>
-                      <p className="font-medium text-dark text-sm">Mantenimiento</p>
-                      <p className="text-[10px] text-muted uppercase">Activa el modo mantenimiento para todo el sitio.</p>
+                      <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-2">Email de Soporte</label>
+                      <input
+                        type="email"
+                        value={portalSettings.support_email}
+                        onChange={e => setPortalSettings({...portalSettings, support_email: e.target.value})}
+                        className="w-full bg-white border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium text-dark text-sm"
+                      />
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" />
-                      <div className="w-11 h-6 bg-muted/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-surface after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface after:border-muted/30 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                    </label>
-                  </div>
-                  <div className="flex justify-end">
-                    <button className="bg-primary text-dark px-10 py-3 rounded-2xl font-medium hover:bg-accent transition-all shadow-lg shadow-primary/20 text-sm">
-                      Guardar Cambios
+
+                    <div>
+                      <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-2">Teléfono / WhatsApp de Contacto</label>
+                      <input
+                        type="tel"
+                        value={portalSettings.support_phone}
+                        onChange={e => setPortalSettings({...portalSettings, support_phone: e.target.value})}
+                        className="w-full bg-white border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium text-dark text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-2">Ciudad / Región</label>
+                      <input
+                        type="text"
+                        value={portalSettings.address}
+                        onChange={e => setPortalSettings({...portalSettings, address: e.target.value})}
+                        className="w-full bg-white border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium text-dark text-sm"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-red-50 rounded-2xl border border-red-100">
+                      <div>
+                        <p className="font-medium text-dark text-sm">Modo Mantenimiento</p>
+                        <p className="text-[10px] text-muted uppercase mt-0.5">Bloquea el acceso público al sitio.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={portalSettings.maintenance_mode}
+                          onChange={e => setPortalSettings({...portalSettings, maintenance_mode: e.target.checked})}
+                          className="sr-only peer" 
+                        />
+                        <div className="w-11 h-6 bg-muted/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-muted/30 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                      </label>
+                    </div>
+
+                    <button 
+                      onClick={handleSavePortalSettings}
+                      disabled={isSaving}
+                      className="w-full bg-primary text-dark py-3 rounded-2xl font-medium hover:bg-accent transition-all shadow-lg shadow-primary/20 text-sm disabled:opacity-50"
+                    >
+                      {isSaving ? 'Guardando...' : 'Guardar Datos del Portal'}
                     </button>
                   </div>
                 </div>
               )}
 
-              {settingsTab === 'integrations' && (
-                <div className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2 text-primary">
-                        <Truck size={18} />
-                        <h4 className="font-medium text-dark uppercase text-xs tracking-widest">Supabase (Database)</h4>
-                      </div>
-                      <div className="bg-surface/30 p-6 rounded-3xl border border-surface space-y-4">
-                        <div>
-                          <label className="block text-[10px] font-medium text-muted uppercase mb-2 ml-1">Project URL</label>
-                          <input type="text" placeholder="https://abc.supabase.co" className="w-full bg-surface border border-surface rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 text-sm font-medium text-dark" />
+              {/* ── TAB 2: Identidad Gráfica ── */}
+              {settingsTab === 'branding' && (
+                <div className="max-w-3xl space-y-8">
+                    <div className="bg-surface rounded-2xl border border-surface p-6 space-y-5">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="w-8 h-8 bg-purple-100 rounded-xl flex items-center justify-center">
+                          <ImageIcon size={16} className="text-purple-500" />
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-medium text-muted uppercase mb-2 ml-1">Anon / Public Key</label>
-                          <input type="password" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." className="w-full bg-surface border border-surface rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 text-sm font-medium text-dark" />
-                        </div>
+                        <h3 className="font-bold text-dark text-sm uppercase tracking-widest">Apariencia</h3>
                       </div>
-                    </div>
 
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2 text-blue-500">
-                        <MapPin size={18} />
-                        <h4 className="font-medium text-dark uppercase text-xs tracking-widest">Google Maps Platform</h4>
-                      </div>
-                      <div className="bg-surface/30 p-6 rounded-3xl border border-surface space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-[10px] font-medium text-muted uppercase mb-2 ml-1">API Key (Maps/Places)</label>
-                          <input type="password" placeholder="AIzaSyA123..." className="w-full bg-surface border border-surface rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-4 focus:ring-primary/10 text-sm font-medium text-dark" />
-                          <p className="text-[8px] text-muted mt-2">Necesaria para geolocalización y cálculo de distancias.</p>
+                          <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-3">Logo del Portal</label>
+                          <div className="bg-white border border-surface rounded-2xl p-4">
+                            <ImageUpload 
+                              label="Subir Logo (Horizontal)"
+                              value={portalSettings.logo_url}
+                              onChange={(val) => setPortalSettings({ ...portalSettings, logo_url: val })}
+                            />
+                            <p className="text-[9px] text-muted mt-2 text-center">Recomendado: 400x120px (Transparente)</p>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-3">Favicon / Icono</label>
+                          <div className="bg-white border border-surface rounded-2xl p-4">
+                            <ImageUpload 
+                              label="Subir Icono (Cuadrado)"
+                              value={portalSettings.favicon_url}
+                              onChange={(val) => setPortalSettings({ ...portalSettings, favicon_url: val })}
+                            />
+                            <p className="text-[9px] text-muted mt-2 text-center">Recomendado: 512x512px</p>
+                          </div>
                         </div>
                       </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-3">Color Principal</label>
+                        <div className="flex items-center flex-wrap gap-3">
+                          {[
+                            { color: '#fbbf24', name: 'Ámbar' },
+                            { color: '#ef4444', name: 'Rojo' },
+                            { color: '#3b82f6', name: 'Azul' },
+                            { color: '#10b981', name: 'Verde' },
+                            { color: '#8b5cf6', name: 'Violeta' },
+                            { color: '#f97316', name: 'Naranja' },
+                          ].map(({ color, name }) => (
+                            <button
+                              key={color}
+                              title={name}
+                              onClick={() => setPortalSettings({...portalSettings, primary_color: color})}
+                              className={`w-9 h-9 rounded-xl border-4 transition-all hover:scale-110 ${portalSettings.primary_color === color ? 'border-dark/20 scale-110 ring-2 ring-dark/10' : 'border-transparent'}`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-3">Modo Visual</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button className="p-3 bg-white border-2 border-primary rounded-xl flex items-center space-x-2 shadow-sm">
+                            <Sun size={16} className="text-primary" />
+                            <span className="font-medium text-dark text-xs">Claro</span>
+                          </button>
+                          <button className="p-3 bg-zinc-800 border-2 border-transparent rounded-xl flex items-center space-x-2 opacity-60">
+                            <Moon size={16} className="text-white" />
+                            <span className="font-medium text-white text-xs">Oscuro</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={handleSavePortalSettings}
+                        disabled={isSaving}
+                        className="w-full bg-purple-500 text-white py-3 rounded-2xl font-medium hover:bg-purple-600 transition-all text-sm disabled:opacity-50"
+                      >
+                        {isSaving ? 'Guardando...' : 'Aplicar Apariencia'}
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <button className="bg-primary text-dark px-10 py-3 rounded-2xl font-medium hover:bg-accent transition-all shadow-lg shadow-primary/20 text-sm">
-                      Vincular APIs
-                    </button>
-                  </div>
                 </div>
               )}
 
-              {settingsTab === 'roles' && (
+              {/* ── TAB 3: Credenciales ── */}
+              {settingsTab === 'apis' && (
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-dark uppercase text-xs tracking-widest">Gestión de Roles</h4>
-                    <button className="bg-primary/10 text-primary px-4 py-2 rounded-xl text-xs font-medium hover:bg-primary/20 transition-all">Configurar Permisos</button>
+                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start space-x-3">
+                    <Shield size={18} className="text-blue-500 mt-0.5 shrink-0" />
+                    <p className="text-xs text-blue-700">Estas claves conectan el portal con servicios externos. La clave de Supabase se lee del archivo <code className="bg-blue-100 px-1 rounded">.env</code>. La de Google Maps es editable para activar la geolocalización.</p>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="text-[10px] text-muted uppercase tracking-widest border-b border-surface">
-                          <th className="pb-4 font-medium">Rol del Sistema</th>
-                          <th className="pb-4 font-medium">Descripción del Acceso</th>
-                          <th className="pb-4 font-medium text-right">Estatus</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-surface">
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Supabase */}
+                    <div className="bg-surface rounded-2xl border border-surface p-6 space-y-5">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center">
+                          <Database size={16} className="text-emerald-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-dark text-sm">Supabase</h3>
+                          <p className="text-[9px] text-emerald-600 font-bold uppercase">Base de Datos · Activa</p>
+                        </div>
+                        <div className="ml-auto w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-lg shadow-emerald-400/50 animate-pulse"></div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-2">URL del Proyecto</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            readOnly
+                            value={(import.meta as any).env.VITE_SUPABASE_URL || 'No configurada en .env'}
+                            className="w-full bg-white border border-surface rounded-xl px-4 py-2.5 text-xs font-medium text-dark pr-10 cursor-default"
+                          />
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-500"></div>
+                        </div>
+                        <p className="text-[9px] text-muted mt-1 ml-1">Solo lectura — definida en VITE_SUPABASE_URL</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Clave Pública (Anon Key)</label>
+                        <div className="relative">
+                          <input
+                            type={showSupabaseKey ? 'text' : 'password'}
+                            readOnly
+                            value={(import.meta as any).env.VITE_SUPABASE_ANON_KEY || ''}
+                            className="w-full bg-white border border-surface rounded-xl px-4 py-2.5 text-xs font-medium text-dark pr-10 cursor-default"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSupabaseKey(!showSupabaseKey)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-dark transition-colors"
+                          >
+                            {showSupabaseKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                        <p className="text-[9px] text-muted mt-1 ml-1">Solo lectura — definida en VITE_SUPABASE_ANON_KEY</p>
+                      </div>
+
+                      <div className="bg-emerald-50 rounded-xl p-3 grid grid-cols-2 gap-3">
                         {[
-                          { name: 'Super Admin', desc: 'Acceso total a la base de datos, APIs y finanzas.', status: 'Master' },
-                          { name: 'Admin', desc: 'Gestión de comercios, usuarios y promociones.', status: 'Active' },
-                          { name: 'Comercio', desc: 'Panel de ventas, inventario y menú propio.', status: 'Active' },
-                          { name: 'Repartidor', desc: 'App móvil de entregas, balance y rutas.', status: 'Active' }
-                        ].map((role, i) => (
-                          <tr key={i} className="text-sm">
-                            <td className="py-4 font-medium text-dark">{role.name}</td>
-                            <td className="py-4 text-muted">{role.desc}</td>
-                            <td className="py-4 text-right">
-                              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-medium uppercase">{role.status}</span>
-                            </td>
-                          </tr>
+                          { label: 'Entorno', value: 'Production' },
+                          { label: 'Región', value: 'South America' },
+                          { label: 'Latencia', value: '42ms' },
+                          { label: 'Versión', value: 'v2.4.0' },
+                        ].map(({ label, value }) => (
+                          <div key={label}>
+                            <p className="text-[8px] text-muted uppercase">{label}</p>
+                            <p className="text-xs font-bold text-dark">{value}</p>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+                      </div>
+                    </div>
 
-              {settingsTab === 'legal' && (
-                <div className="space-y-8">
-                  <div className="grid grid-cols-1 gap-8">
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-medium text-muted uppercase mb-1 ml-1">Términos y Condiciones</label>
-                      <textarea className="w-full bg-surface border border-surface rounded-3xl px-6 py-4 focus:outline-none focus:ring-4 focus:ring-primary/10 text-sm font-medium text-dark h-32 resize-none" defaultValue="Al utilizar Tentación Food Store, aceptas que..." />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-medium text-muted uppercase mb-1 ml-1">Política de Privacidad</label>
-                      <textarea className="w-full bg-surface border border-surface rounded-3xl px-6 py-4 focus:outline-none focus:ring-4 focus:ring-primary/10 text-sm font-medium text-dark h-32 resize-none" defaultValue="Tus datos están protegidos bajo la ley..." />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-medium text-muted uppercase mb-1 ml-1">Política de Cookies</label>
-                      <textarea className="w-full bg-surface border border-surface rounded-3xl px-6 py-4 focus:outline-none focus:ring-4 focus:ring-primary/10 text-sm font-medium text-dark h-32 resize-none" defaultValue="Usamos cookies para mejorar tu experiencia..." />
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <button className="bg-primary text-dark px-10 py-3 rounded-2xl font-medium hover:bg-accent transition-all shadow-lg shadow-primary/20 text-sm">
-                      Publicar Textos Legales
-                            </button>
-                  </div>
-                </div>
-              )}
+                    {/* Google Maps */}
+                    <div className="bg-surface rounded-2xl border border-surface p-6 space-y-5">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center">
+                          <MapPin size={16} className="text-blue-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-dark text-sm">Google Maps</h3>
+                          <p className="text-[9px] text-amber-600 font-bold uppercase">Geolocalización · Pendiente</p>
+                        </div>
+                        <div className="ml-auto w-2.5 h-2.5 rounded-full bg-amber-400 shadow-lg shadow-amber-400/50"></div>
+                      </div>
 
-              {['notificaciones', 'pagos', 'apariencia'].includes(settingsTab) && (
-                <div className="py-12 text-center text-muted font-medium text-sm italic">
-                  La configuración avanzada de {settingsTab} estará disponible en la próxima actualización.
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Google Maps API Key</label>
+                        <div className="relative">
+                          <input
+                            type={showMapsKey ? 'text' : 'password'}
+                            value={mapsApiKey}
+                            onChange={e => setMapsApiKey(e.target.value)}
+                            placeholder="AIzaSyA••••••••••••••••••••••••••"
+                            className="w-full bg-white border border-surface rounded-xl px-4 py-2.5 text-xs font-medium text-dark pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowMapsKey(!showMapsKey)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-dark transition-colors"
+                          >
+                            {showMapsKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                        <p className="text-[9px] text-amber-600 font-bold mt-1 ml-1 uppercase">⚠ Necesaria para mostrar mapas y rastreo de repartidores</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Cómo obtener tu clave</label>
+                        <ol className="space-y-1.5 text-[11px] text-muted list-none">
+                          <li className="flex items-start space-x-2"><span className="w-4 h-4 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">1</span><span>Ve a <strong>console.cloud.google.com</strong></span></li>
+                          <li className="flex items-start space-x-2"><span className="w-4 h-4 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">2</span><span>Crea un proyecto y activa <strong>Maps JavaScript API</strong></span></li>
+                          <li className="flex items-start space-x-2"><span className="w-4 h-4 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">3</span><span>Copia la clave y pégala arriba</span></li>
+                        </ol>
+                      </div>
+
+                      <div className="bg-amber-50 rounded-xl p-3 space-y-2">
+                        <p className="text-[9px] font-bold text-amber-700 uppercase">Funcionalidades que activa:</p>
+                        {['Mapa interactivo de comercios', 'Rastreo en tiempo real del repartidor', 'Cálculo de distancia y tarifa', 'Autocompletado de direcciones'].map(f => (
+                          <div key={f} className="flex items-center space-x-2">
+                            <CheckCircle size={11} className="text-amber-500 shrink-0" />
+                            <p className="text-[10px] text-amber-800">{f}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <button 
+                        onClick={handleSavePortalSettings}
+                        disabled={isSaving}
+                        className="w-full bg-blue-500 text-white py-3 rounded-2xl font-medium hover:bg-blue-600 transition-all text-sm shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                      >
+                        {isSaving ? 'Guardando...' : 'Guardar Clave de Mapas'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           )}
+
         </div>
       </main>
 

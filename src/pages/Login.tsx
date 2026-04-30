@@ -138,25 +138,7 @@ export const Login = () => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-muted mb-2">Tipo de Usuario</label>
-            <div className="grid grid-cols-2 gap-4">
-              {(['user', 'comercio', 'repartidor', 'admin'] as Role[]).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  className={`py-3 rounded-2xl font-medium text-xs uppercase tracking-wider transition-all border ${
-                    role === r 
-                      ? 'bg-primary text-dark border-primary shadow-md' 
-                      : 'bg-surface text-muted border-surface hover:bg-primary/5'
-                  }`}
-                >
-                  {r === 'user' ? 'Cliente' : r === 'comercio' ? 'Comercio' : r === 'repartidor' ? 'Repartidor' : 'Admin'}
-                </button>
-              ))}
-            </div>
-          </div>
+
 
           <button 
             type="submit"
