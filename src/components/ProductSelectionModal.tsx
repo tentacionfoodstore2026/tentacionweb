@@ -169,186 +169,204 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-        className="relative bg-surface w-full max-w-2xl max-h-[85vh] rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col shadow-2xl border border-surface/50 z-10"
+        className="relative bg-white w-full max-w-3xl max-h-[85vh] sm:max-h-[90vh] rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col shadow-2xl z-10"
       >
-        {/* Header Image */}
-        <div className="relative h-48 sm:h-64 shrink-0">
-          <img 
-            src={product.image || fallbackImage} 
-            alt={product.name} 
-            onError={(e) => { e.currentTarget.src = fallbackImage; }}
-            className="w-full h-full object-cover" 
-          />
+        {/* Desktop Split Layout Container */}
+        <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
+          
+          {/* Header Image (Left on Desktop, Top on Mobile) */}
+          <div className="relative h-64 sm:h-auto sm:w-2/5 shrink-0 bg-surface/30 sm:border-r border-surface flex items-center justify-center p-6">
+            <img 
+              src={product.image || fallbackImage} 
+              alt={product.name} 
+              onError={(e) => { e.currentTarget.src = fallbackImage; }}
+              className="w-full h-full object-contain drop-shadow-xl" 
+            />
+            {/* Close button inside image container for mobile, but it's positioned absolute to the modal on desktop */}
+            <button 
+              onClick={onClose}
+              className="absolute top-4 right-4 sm:hidden p-2.5 bg-white/80 backdrop-blur-md text-dark rounded-full shadow-lg hover:bg-white transition-all z-20"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Desktop Close Button */}
           <button 
             onClick={onClose}
-            className="absolute top-6 right-6 p-2 bg-black/20 backdrop-blur-md text-white rounded-full hover:bg-black/40 transition-all border border-white/20"
+            className="hidden sm:flex absolute top-4 right-4 p-2.5 bg-surface hover:bg-gray-200 text-dark rounded-full transition-all z-20"
           >
             <X size={20} />
           </button>
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-8 scrollbar-hide">
-          <div>
-            <h3 className="text-3xl font-medium text-dark mb-2">{product.name}</h3>
-            <p className="text-muted text-lg">{product.description}</p>
-          </div>
-
-          {/* Sizes */}
-          {product.sizes && product.sizes.length > 0 && (
-            <div className="space-y-4">
-              <h4 className="font-medium text-dark uppercase tracking-widest text-xs flex items-center gap-2">
-                Elegí el tamaño <span className="text-[10px] text-muted">(Obligatorio)</span>
-              </h4>
-              <div className="grid grid-cols-1 gap-3">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size.name}
-                    onClick={() => setSelectedSize(size)}
-                    className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
-                      selectedSize?.name === size.name 
-                        ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10' 
-                        : 'border-surface bg-surface hover:border-primary/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        selectedSize?.name === size.name ? 'border-accent bg-accent' : 'border-surface'
-                      }`}>
-                        {selectedSize?.name === size.name && <Check size={12} className="text-white" />}
-                      </div>
-                      <span className="font-medium text-dark">{size.name}</span>
-                    </div>
-                    <span className="font-medium text-accent font-mono">${size.price}</span>
-                  </button>
-                ))}
+          {/* Content (Right on Desktop, Bottom on Mobile) */}
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 scrollbar-hide">
+              <div>
+                <h3 className="text-2xl sm:text-3xl font-bold text-dark mb-2 leading-tight">{product.name}</h3>
+                <p className="text-muted text-base leading-relaxed">{product.description}</p>
               </div>
-            </div>
-          )}
 
-          {/* Global Modifier Groups */}
-          {loadingModifiers && (
-            <div className="flex justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-            </div>
-          )}
-
-          {modifierGroups.map((group) => (
-            <div key={group.id} className="space-y-4">
-              <div className="flex justify-between items-end">
-                <h4 className="font-medium text-dark uppercase tracking-widest text-xs flex items-center gap-2">
-                  {group.name}
-                  {group.is_required && <span className="text-[10px] text-red-400">(Obligatorio)</span>}
-                </h4>
-                <p className="text-[10px] font-medium text-muted bg-surface px-2 py-1 rounded-2xl border border-surface uppercase tracking-tighter">
-                  {group.selection_type === 'single' ? 'Elige 1' : `Elige hasta ${group.max_selections}`}
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-3">
-                {group.options.filter(o => o.is_available).map((opt) => {
-                  const isSelected = (selectedModifiers[group.id] || []).includes(opt.id);
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => handleToggleModifier(group, opt.id)}
-                      className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
-                        isSelected 
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-surface bg-surface hover:border-primary/20'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {group.selection_type === 'single' ? (
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            isSelected ? 'border-accent bg-accent' : 'border-surface'
+              {/* Sizes */}
+              {product.sizes && product.sizes.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-baseline mb-2">
+                    <h4 className="font-bold text-dark text-lg">Tamaño</h4>
+                    <span className="text-[10px] font-bold tracking-wider uppercase text-primary bg-primary/10 px-2 py-1 rounded-full">Obligatorio</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {product.sizes.map((size) => (
+                      <button
+                        key={size.name}
+                        onClick={() => setSelectedSize(size)}
+                        className={`flex flex-col items-start p-4 rounded-2xl border-2 transition-all group relative overflow-hidden ${
+                          selectedSize?.name === size.name 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-surface bg-white hover:border-primary/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full mb-1">
+                          <span className="font-semibold text-dark text-lg">{size.name}</span>
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                            selectedSize?.name === size.name ? 'border-primary bg-primary' : 'border-gray-300'
                           }`}>
-                            {isSelected && <Check size={12} className="text-white" />}
+                            {selectedSize?.name === size.name && <Check size={12} className="text-white" />}
                           </div>
-                        ) : (
-                          <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                            isSelected ? 'border-accent bg-accent' : 'border-surface bg-surface'
-                          }`}>
-                            {isSelected && <Plus size={14} className="text-white" />}
-                          </div>
-                        )}
-                        <span className="font-medium text-dark">{opt.name}</span>
-                      </div>
-                      {opt.extra_price > 0 && (
-                        <span className="font-medium text-muted text-sm font-mono">+${opt.extra_price}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {/* Legacy Extras Groups */}
-          {product.extras && product.extras.length > 0 && product.extras.map((group) => (
-            <div key={group.id} className="space-y-4">
-              <div className="flex justify-between items-end">
-                <h4 className="font-medium text-dark uppercase tracking-widest text-xs flex items-center gap-2">
-                  {group.name}
-                </h4>
-                <p className="text-[10px] font-medium text-muted bg-surface px-2 py-1 rounded-2xl border border-surface uppercase tracking-tighter">
-                  {group.min > 0 ? `Min: ${group.min} - ` : ''} Max: {group.max}
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-3">
-                {group.options.map((opt) => {
-                  const isSelected = selectedExtras.some(e => e.groupName === group.name && e.optionName === opt.name);
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => handleToggleExtra(group.name, opt, group.max)}
-                      className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
-                        isSelected 
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-surface bg-surface hover:border-primary/20'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                          isSelected ? 'border-accent bg-accent' : 'border-surface bg-surface'
-                        }`}>
-                          {isSelected && <Plus size={14} className="text-white" />}
                         </div>
-                        <span className="font-medium text-dark">{opt.name}</span>
-                      </div>
-                      {opt.price > 0 && (
-                        <span className="font-medium text-muted text-sm font-mono">+${opt.price}</span>
-                      )}
-                    </button>
-                  );
-                })}
+                        <span className="font-bold text-primary text-xl font-mono">${size.price}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Global Modifier Groups */}
+              {loadingModifiers && (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              )}
+
+              {modifierGroups.map((group) => (
+                <div key={group.id} className="space-y-4">
+                  <div className="flex justify-between items-baseline mb-2 border-b border-surface pb-2">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-dark text-lg">{group.name}</h4>
+                      {group.is_required && <span className="text-[10px] font-bold tracking-wider uppercase text-primary bg-primary/10 px-2 py-1 rounded-full">Obligatorio</span>}
+                    </div>
+                    <p className="text-[11px] font-bold text-muted bg-surface px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      {group.selection_type === 'single' ? 'Elige 1' : `Máx ${group.max_selections}`}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {group.options.filter(o => o.is_available).map((opt) => {
+                      const isSelected = (selectedModifiers[group.id] || []).includes(opt.id);
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => handleToggleModifier(group, opt.id)}
+                          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-xl border-2 transition-all ${
+                            isSelected 
+                              ? 'border-primary bg-primary/5 shadow-sm' 
+                              : 'border-surface bg-white hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3.5">
+                            {group.selection_type === 'single' ? (
+                              <div className={`w-5 h-5 rounded-full border-2 flex shrink-0 items-center justify-center transition-colors ${
+                                isSelected ? 'border-primary bg-primary' : 'border-gray-300'
+                              }`}>
+                                {isSelected && <Check size={12} className="text-white" />}
+                              </div>
+                            ) : (
+                              <div className={`w-6 h-6 rounded-md border-2 flex shrink-0 items-center justify-center transition-all ${
+                                isSelected ? 'border-primary bg-primary' : 'border-gray-300 bg-white'
+                              }`}>
+                                {isSelected && <Check size={14} className="text-white" />}
+                              </div>
+                            )}
+                            <span className="font-medium text-dark text-left leading-tight">{opt.name}</span>
+                          </div>
+                          {opt.extra_price > 0 && (
+                            <span className="font-semibold text-muted text-sm font-mono whitespace-nowrap ml-2">
+                              +${opt.extra_price}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {/* Legacy Extras Groups */}
+              {product.extras && product.extras.length > 0 && product.extras.map((group) => (
+                <div key={group.id} className="space-y-4">
+                  <div className="flex justify-between items-baseline mb-2 border-b border-surface pb-2">
+                    <h4 className="font-bold text-dark text-lg">{group.name}</h4>
+                    <p className="text-[11px] font-bold text-muted bg-surface px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      {group.min > 0 ? `Min: ${group.min} - ` : ''} Max: {group.max}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {group.options.map((opt) => {
+                      const isSelected = selectedExtras.some(e => e.groupName === group.name && e.optionName === opt.name);
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => handleToggleExtra(group.name, opt, group.max)}
+                          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-xl border-2 transition-all ${
+                            isSelected 
+                              ? 'border-primary bg-primary/5 shadow-sm' 
+                              : 'border-surface bg-white hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3.5">
+                            <div className={`w-6 h-6 rounded-md border-2 flex shrink-0 items-center justify-center transition-all ${
+                              isSelected ? 'border-primary bg-primary' : 'border-gray-300 bg-white'
+                            }`}>
+                              {isSelected && <Check size={14} className="text-white" />}
+                            </div>
+                            <span className="font-medium text-dark text-left leading-tight">{opt.name}</span>
+                          </div>
+                          {opt.price > 0 && (
+                            <span className="font-semibold text-muted text-sm font-mono whitespace-nowrap ml-2">
+                              +${opt.price}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              
+              {/* Spacer for bottom sticky bar */}
+              <div className="h-6"></div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 sm:p-6 bg-white border-t border-surface shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] z-20">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center bg-surface/50 border border-surface rounded-2xl p-1.5 shrink-0">
+                  <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="p-3 hover:bg-white rounded-xl hover:shadow-sm transition-all text-dark"><Minus size={20} /></button>
+                  <span className="w-10 text-center font-bold text-dark text-xl">{quantity}</span>
+                  <button onClick={() => setQuantity(q => q + 1)} className="p-3 hover:bg-white rounded-xl hover:shadow-sm transition-all text-dark"><Plus size={20} /></button>
+                </div>
+                
+                <button 
+                  onClick={handleAddToCart}
+                  className="flex-1 bg-primary text-white py-4 px-6 rounded-2xl font-bold text-lg shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all active:scale-[0.98] flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    <Plus size={22} />
+                    <span>Agregar</span>
+                  </span>
+                  <span className="font-mono text-xl tracking-tight">${totalPrice.toLocaleString('es-CL')}</span>
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* Footer */}
-        <div className="p-6 sm:p-10 border-t border-surface bg-surface/50 backdrop-blur-xl shrink-0">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-6">
-               <div className="flex items-center bg-surface border border-surface rounded-2xl p-1">
-                  <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="p-3 hover:text-accent transition-colors"><Minus size={20} /></button>
-                  <span className="w-12 text-center font-medium text-dark text-xl">{quantity}</span>
-                  <button onClick={() => setQuantity(q => q + 1)} className="p-3 hover:text-accent transition-colors"><Plus size={20} /></button>
-               </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs font-medium text-muted uppercase tracking-widest mb-1">Precio Total</p>
-              <p className="text-4xl font-medium text-dark font-mono">${totalPrice.toLocaleString('es-CL')}</p>
-            </div>
           </div>
-          
-          <button 
-            onClick={handleAddToCart}
-            className="w-full bg-primary text-dark py-5 rounded-2xl font-medium text-xl shadow-2xl shadow-primary/30 hover:bg-accent transition-all active:scale-[0.98] flex items-center justify-center space-x-3"
-          >
-            <Plus size={24} />
-            <span>Agregar al Carrito</span>
-          </button>
         </div>
       </motion.div>
     </div>
