@@ -22,7 +22,7 @@ export const BusinessCard = ({ business }: { business: Business }) => {
           <div className={`absolute top-4 left-4 px-2 py-1 rounded-2xl text-[10px] font-medium uppercase tracking-wider shadow-sm backdrop-blur-sm ${
             business.isOpen 
               ? 'bg-primary/90 text-dark' 
-              : 'bg-muted/90 text-dark'
+              : 'bg-red-500 text-white'
           }`}>
             {business.isOpen ? 'Abierto' : 'Cerrado'}
           </div>
@@ -30,11 +30,6 @@ export const BusinessCard = ({ business }: { business: Business }) => {
             <Star size={14} className="text-primary fill-primary" />
             <span className="text-xs font-medium text-dark">{business.rating}</span>
           </div>
-          {!business.isOpen && (
-            <div className="absolute inset-0 bg-dark/40 flex items-center justify-center">
-              <span className="bg-surface px-4 py-1 rounded-2xl text-sm font-medium text-dark">Cerrado</span>
-            </div>
-          )}
         </div>
         <div className="p-4">
           <div className="flex justify-between items-start mb-1">

@@ -1,16 +1,156 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Store, ShieldCheck, Search, MoreVertical, CheckCircle, XCircle, Trash2, Edit, Filter, Save, X, Image as ImageIcon, Clock, Truck, MapPin, Phone, Settings, Tag, Plus, Printer, Menu as MenuIcon, Calendar, CreditCard, Hash, User, Star, Mail, Info, ClipboardList, UtensilsCrossed, Bell, Send, DollarSign, TrendingUp, ShoppingBag, ChefHat, LayoutDashboard, Eye, EyeOff, Shield, Database, Upload, Sun, Moon } from 'lucide-react';
+import { Users, Store, ShieldCheck, Search, MoreVertical, CheckCircle, XCircle, Trash2, Edit, Filter, Save, X, Image as ImageIcon, Clock, Truck, MapPin, Phone, Settings, Tag, Plus, Printer, Menu as MenuIcon, Calendar, CreditCard, Hash, User, Star, Mail, Info, ClipboardList, UtensilsCrossed, Bell, Send, DollarSign, TrendingUp, ShoppingBag, ChefHat, LayoutDashboard, Eye, EyeOff, Shield, Database, Upload, Sun, Moon, FileSpreadsheet, FileText, Download, FileUp, FileDown, ShieldAlert } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { Business, Coupon, useAuthStore, Role, Driver, useDriverStore } from '../store/useStore';
+import { Business, Coupon, useAuthStore, Role, Driver, useDriverStore, PromotionalBanner } from '../store/useStore';
 import { ImageUpload } from '../components/ImageUpload';
 import { MenuEditor } from '../components/MenuEditor';
 import { supabase } from '../lib/supabase';
 import { uploadImageToStorage } from '../lib/uploadImage';
 
 // ─────────────────────────────────────────────────────
-// Administración de Accesos — Subcomponent
+// Banner Management — Subcomponent
 // ─────────────────────────────────────────────────────
+
+const BannerManagementSection: React.FC<{
+  banners: PromotionalBanner[];
+  onEdit: (banner: PromotionalBanner) => void;
+  onDelete: (id: string) => void;
+  onToggleStatus: (id: string) => void;
+  onAdd: () => void;
+}> = ({ banners, onEdit, onDelete, onToggleStatus, onAdd }) => {
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="bg-primary/20 p-3 rounded-2xl">
+            <ImageIcon className="text-accent" size={24} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-dark">Banners Promocionales</h2>
+            <p className="text-sm text-muted">Gestiona la publicidad rotativa de la pantalla de inicio.</p>
+          </div>
+        </div>
+        <button 
+          onClick={onAdd}
+          className="bg-primary text-dark px-8 py-3 rounded-2xl font-bold flex items-center space-x-3 hover:bg-accent transition-all shadow-xl shadow-primary/20 active:scale-95"
+        >
+          <Plus size={20} />
+          <span>NUEVO BANNER</span>
+        </button>
+      </div>
+
+      {banners.length === 0 ? (
+        <div className="bg-white rounded-[2rem] border-2 border-dashed border-primary/20 p-20 text-center">
+          <div className="bg-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <ImageIcon size={40} className="text-primary/40" />
+          </div>
+          <h3 className="text-xl font-bold text-dark mb-2">No hay banners activos</h3>
+          <p className="text-muted max-w-sm mx-auto mb-8">Comienza agregando un banner promocional para destacar tus ofertas en la pantalla principal.</p>
+          <button 
+            onClick={onAdd}
+            className="bg-primary/10 text-accent px-8 py-3 rounded-2xl font-bold hover:bg-primary/20 transition-all uppercase text-xs tracking-widest"
+          >
+            Crear mi primer banner
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {banners.map((banner) => (
+            <motion.div 
+              key={banner.id}
+              layout
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-[2.5rem] border border-primary/5 overflow-hidden shadow-xl shadow-dark/5 hover:shadow-2xl hover:shadow-primary/10 transition-all group"
+            >
+              <div className="relative h-56 overflow-hidden">
+                <img 
+                  src={banner.image_url} 
+                  alt={banner.title} 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                
+                <div className="absolute top-4 left-4">
+                  <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg backdrop-blur-md ${
+                    banner.is_active ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'
+                  }`}>
+                    {banner.is_active ? 'En Línea' : 'Pausado'}
+                  </div>
+                </div>
+
+                <div className="absolute bottom-6 left-6 right-6">
+                  <p className="text-primary font-black text-[10px] uppercase tracking-[0.3em] mb-1">{banner.subtitle}</p>
+                  <h3 className="text-white text-xl font-bold leading-tight">{banner.title}</h3>
+                </div>
+
+                <div className="absolute top-4 right-4 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => onEdit(banner)}
+                    className="bg-white text-dark p-3 rounded-2xl hover:bg-primary transition-all shadow-xl"
+                  >
+                    <Edit size={18} />
+                  </button>
+                  <button 
+                    onClick={() => onDelete(banner.id)}
+                    className="bg-white text-red-500 p-3 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-xl"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-8 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-primary/10 p-2 rounded-xl">
+                      <Clock size={16} className="text-accent" />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold text-muted uppercase tracking-tighter">Rotación</p>
+                      <p className="text-sm font-bold text-dark">{(banner.duration_ms / 1000).toFixed(1)} segundos</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] font-bold text-muted uppercase">Visibilidad</span>
+                    <label className="relative inline-flex items-center cursor-pointer scale-90">
+                      <input 
+                        type="checkbox" 
+                        checked={banner.is_active}
+                        onChange={() => onToggleStatus(banner.id)}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-muted/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-surface/50 p-5 rounded-3xl border border-primary/5 grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Calendar size={12} className="text-primary" />
+                      <span className="text-[9px] font-bold text-muted uppercase tracking-tighter">Desde</span>
+                    </div>
+                    <p className="text-xs font-bold text-dark">{banner.start_date ? new Date(banner.start_date).toLocaleDateString() : 'N/A'}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center justify-end space-x-2 mb-1">
+                      <span className="text-[9px] font-bold text-muted uppercase tracking-tighter">Hasta</span>
+                      <Calendar size={12} className="text-red-400" />
+                    </div>
+                    <p className="text-xs font-bold text-dark">{banner.end_date ? new Date(banner.end_date).toLocaleDateString() : 'Indefinido'}</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ROLE_DEFINITIONS = [
   {
@@ -616,12 +756,51 @@ const DashboardContent: React.FC<{
     return d.toISOString().split('T')[0];
   }).reverse();
 
-  const salesByDay = last7Days.map(day => ({
-    name: day.split('-')[2], // Just the day number
-    total: orders
-      .filter(o => o.created_at.startsWith(day))
-      .reduce((acc, o) => acc + (o.total || 0), 0)
-  }));
+  // Sales by Business (Enhanced with Logos)
+  const businessSales: Record<string, { name: string; total: number; orders: number; image?: string; id: string }> = {};
+  
+  orders.forEach(order => {
+    const biz = order.businesses;
+    const bName = biz?.name || 'Varios';
+    const bId = biz?.id || 'unknown';
+    
+    if (!businessSales[bId]) {
+      businessSales[bId] = { 
+        id: bId,
+        name: bName, 
+        total: 0, 
+        orders: 0, 
+        image: biz?.image 
+      };
+    }
+    businessSales[bId].total += order.total || 0;
+    businessSales[bId].orders += 1;
+  });
+
+  const topBusinesses = Object.values(businessSales)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
+  // Sales by Day (Enhanced for Multiple Lines)
+  const businessColors = [
+    '#ffb800', '#6366f1', '#f97316', '#3b82f6', '#f59e0b', 
+    '#a855f7', '#ec4899', '#10b981', '#ef4444', '#06b6d4'
+  ];
+
+  // Get businesses that actually have sales to show in chart
+  const chartBusinesses = Object.values(businessSales)
+    .filter(b => b.id !== 'unknown')
+    .sort((a, b) => b.total - a.total);
+
+  const salesByDay = last7Days.map(day => {
+    const data: any = { name: day.split('-')[2] };
+    chartBusinesses.forEach(biz => {
+      data[biz.name] = orders
+        .filter(o => o.created_at.startsWith(day) && (o.businesses?.id === biz.id || o.business_id === biz.id))
+        .reduce((acc, o) => acc + (o.total || 0), 0);
+    });
+    return data;
+  });
 
   // Top Selling Products
   const productCounts: Record<string, { name: string; count: number; total: number }> = {};
@@ -638,18 +817,6 @@ const DashboardContent: React.FC<{
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // Sales by Business
-  const businessSales: Record<string, { name: string; total: number; orders: number }> = {};
-  orders.forEach(order => {
-    const bName = order.businesses?.name || 'Varios';
-    if (!businessSales[bName]) businessSales[bName] = { name: bName, total: 0, orders: 0 };
-    businessSales[bName].total += order.total || 0;
-    businessSales[bName].orders += 1;
-  });
-
-  const topBusinesses = Object.values(businessSales)
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
 
   // Role Counts
   const roleStats = [
@@ -739,21 +906,46 @@ const DashboardContent: React.FC<{
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={salesByDay}>
                 <defs>
-                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ffb800" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#ffb800" stopOpacity={0}/>
-                  </linearGradient>
+                  {chartBusinesses.map((biz, idx) => (
+                    <linearGradient key={`color-${biz.id}`} id={`color-${biz.id}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={businessColors[idx % businessColors.length]} stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor={businessColors[idx % businessColors.length]} stopOpacity={0}/>
+                    </linearGradient>
+                  ))}
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#666' }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#666' }} tickFormatter={(value) => `$${value}`} />
                 <Tooltip 
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                  formatter={(value: any) => [`$${value}`, 'Ventas']}
+                  formatter={(value: any, name: string) => [`$${value.toLocaleString()}`, name]}
                 />
-                <Area type="monotone" dataKey="total" stroke="#ffb800" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
+                {chartBusinesses.map((biz, idx) => (
+                  <Area 
+                    key={biz.id}
+                    type="monotone" 
+                    dataKey={biz.name} 
+                    stroke={businessColors[idx % businessColors.length]} 
+                    strokeWidth={3} 
+                    fillOpacity={1} 
+                    fill={`url(#color-${biz.id})`} 
+                  />
+                ))}
               </AreaChart>
             </ResponsiveContainer>
+          </div>
+
+          {/* Chart Legend */}
+          <div className="mt-8 pt-6 border-t border-surface flex flex-wrap justify-center gap-6">
+            {chartBusinesses.map((biz, idx) => (
+              <div key={biz.id} className="flex items-center space-x-2">
+                <div 
+                  className="w-3 h-3 rounded-sm shadow-sm" 
+                  style={{ backgroundColor: businessColors[idx % businessColors.length] }} 
+                />
+                <span className="text-[10px] font-bold text-muted uppercase tracking-widest">{biz.name}</span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -839,8 +1031,14 @@ const DashboardContent: React.FC<{
             {topBusinesses.map((biz, idx) => (
               <div key={idx} className="flex items-center justify-between p-4 bg-surface/50 rounded-2xl hover:bg-surface transition-colors border border-transparent hover:border-surface">
                 <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-2xl bg-dark text-white flex items-center justify-center font-bold text-lg">
-                    {biz.name.charAt(0)}
+                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center overflow-hidden border border-surface shadow-inner p-1">
+                    {biz.image ? (
+                      <img src={biz.image} alt={biz.name} className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="w-full h-full bg-dark text-white flex items-center justify-center font-bold text-lg rounded-xl">
+                        {biz.name.charAt(0)}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <p className="font-medium text-dark">{biz.name}</p>
@@ -873,11 +1071,20 @@ export const AdminPanel = () => {
   const [users, setUsers] = React.useState<any[]>([]);
   const [coupons, setCoupons] = React.useState<any[]>([]);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = React.useState('all');
+  const [orderBusinessFilter, setOrderBusinessFilter] = React.useState('all');
+  const [orderDateFilter, setOrderDateFilter] = React.useState('');
+  const [kitchenStatusFilter, setKitchenStatusFilter] = React.useState('active');
+  const [kitchenBusinessFilter, setKitchenBusinessFilter] = React.useState('all');
+  const [kitchenSearchQuery, setKitchenSearchQuery] = React.useState('');
   const [orders, setOrders] = React.useState<any[]>([]);
   const [isEditingBusiness, setIsEditingBusiness] = React.useState(false);
   const [currentBusiness, setCurrentBusiness] = React.useState<Partial<Business> | null>(null);
   const [isEditingCoupon, setIsEditingCoupon] = React.useState(false);
   const [currentCoupon, setCurrentCoupon] = React.useState<Partial<Coupon> | null>(null);
+  const [banners, setBanners] = React.useState<PromotionalBanner[]>([]);
+  const [isEditingBanner, setIsEditingBanner] = React.useState(false);
+  const [currentBanner, setCurrentBanner] = React.useState<Partial<PromotionalBanner> | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isEditingMenu, setIsEditingMenu] = React.useState(false);
   const [activeBusinessForMenu, setActiveBusinessForMenu] = React.useState<Business | null>(null);
@@ -894,6 +1101,13 @@ export const AdminPanel = () => {
     image: '',
     link: ''
   });
+  const [driverStatusFilter, setDriverStatusFilter] = useState('all');
+  const [driverSearchQuery, setDriverSearchQuery] = useState('');
+  const [couponStatusFilter, setCouponStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [showUsageModal, setShowUsageModal] = useState(false);
+  const [couponUsage, setCouponUsage] = useState<any[]>([]);
+  const [loadingUsage, setLoadingUsage] = useState(false);
+  const [selectedCouponForUsage, setSelectedCouponForUsage] = useState<string | null>(null);
 
   const [portalSettings, setPortalSettings] = useState({
     name: 'Tentacion Food Store',
@@ -904,6 +1118,7 @@ export const AdminPanel = () => {
     primary_color: '#fbbf24',
     logo_url: '',
     favicon_url: '',
+    default_product_image_url: '',
     google_maps_key: ''
   });
 
@@ -937,7 +1152,7 @@ export const AdminPanel = () => {
       // Fetch Orders — use left join to get profile & business info
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('*, profiles!orders_user_id_fkey(name, email), businesses(name, address), order_items(*, products(name))')
+        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name)), promotions(code)')
         .order('created_at', { ascending: false });
       if (orderError) console.error('[AdminPanel] Error fetching orders:', orderError);
       if (orderData) {
@@ -957,8 +1172,16 @@ export const AdminPanel = () => {
         console.warn('[AdminPanel] Could not fetch portal settings (table might be missing):', settingsError.message);
       } else if (settingsData) {
         setPortalSettings(settingsData);
+        useAuthStore.getState().setPortalSettings(settingsData);
         if (settingsData.google_maps_key) setMapsApiKey(settingsData.google_maps_key);
       }
+
+      // Fetch Promotional Banners
+      const { data: bannerData } = await supabase
+        .from('promotional_banners')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (bannerData) setBanners(bannerData);
     };
 
     fetchData();
@@ -1019,12 +1242,16 @@ export const AdminPanel = () => {
       
       let finalLogoUrl = portalSettings.logo_url;
       let finalFaviconUrl = portalSettings.favicon_url;
+      let finalDefaultProductImageUrl = portalSettings.default_product_image_url;
 
       if (finalLogoUrl && finalLogoUrl.startsWith('data:image')) {
-        finalLogoUrl = await uploadImageToStorage(finalLogoUrl, 'branding');
+        finalLogoUrl = await uploadImageToStorage(finalLogoUrl, 'images');
       }
       if (finalFaviconUrl && finalFaviconUrl.startsWith('data:image')) {
-        finalFaviconUrl = await uploadImageToStorage(finalFaviconUrl, 'branding');
+        finalFaviconUrl = await uploadImageToStorage(finalFaviconUrl, 'images');
+      }
+      if (finalDefaultProductImageUrl && finalDefaultProductImageUrl.startsWith('data:image')) {
+        finalDefaultProductImageUrl = await uploadImageToStorage(finalDefaultProductImageUrl, 'images');
       }
 
       const { error } = await supabase
@@ -1034,17 +1261,23 @@ export const AdminPanel = () => {
           ...portalSettings,
           logo_url: finalLogoUrl,
           favicon_url: finalFaviconUrl,
+          default_product_image_url: finalDefaultProductImageUrl,
           google_maps_key: mapsApiKey
         });
 
       if (error) throw error;
       
       // Actualizar estado local con las URLs finales de Storage
-      setPortalSettings(prev => ({
-        ...prev,
+      const updatedSettings = {
+        ...portalSettings,
         logo_url: finalLogoUrl,
-        favicon_url: finalFaviconUrl
-      }));
+        favicon_url: finalFaviconUrl,
+        default_product_image_url: finalDefaultProductImageUrl
+      };
+
+      setPortalSettings(updatedSettings);
+      // También actualizar el store global para que se refleje en toda la app
+      useAuthStore.getState().setPortalSettings(updatedSettings);
       
       alert('✅ Configuración guardada correctamente.');
     } catch (error: any) {
@@ -1164,6 +1397,95 @@ export const AdminPanel = () => {
     }
   };
 
+  const handleExportBusinessConfig = () => {
+    if (!currentBusiness) return;
+    
+    // Preparar datos para exportar (aplanar un poco)
+    const configToExport = {
+      name: currentBusiness.name || '',
+      category: currentBusiness.category || '',
+      description: currentBusiness.description || '',
+      whatsapp: currentBusiness.whatsapp || '',
+      address: currentBusiness.address || '',
+      deliveryFee: currentBusiness.deliveryFee || 0,
+      deliveryTime: currentBusiness.deliveryTime || '',
+      rating: currentBusiness.rating || 5.0,
+      status: currentBusiness.status || 'active',
+      instagram: currentBusiness.instagram || '',
+      facebook: currentBusiness.facebook || '',
+      website: currentBusiness.website || '',
+      image: currentBusiness.image || '',
+      banner: currentBusiness.banner || '',
+      openingHours: JSON.stringify(currentBusiness.openingHours || [])
+    };
+
+    const headers = Object.keys(configToExport);
+    const values = Object.values(configToExport).map(val => {
+      const stringVal = String(val);
+      return `"${stringVal.replace(/"/g, '""')}"`;
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), values.join(',')].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `config_${currentBusiness.name?.replace(/\s+/g, '_') || 'comercio'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportBusinessConfig = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n');
+        if (lines.length < 2) throw new Error('Archivo inválido');
+
+        const headers = lines[0].replace(/^\uFEFF/, '').split(',');
+        // Regex para manejar comas dentro de comillas
+        const row = lines[1].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+        
+        const importedData: any = {};
+        headers.forEach((header, index) => {
+          let value = row[index]?.replace(/^"|"$/g, '').replace(/""/g, '"');
+          
+          if (header === 'openingHours') {
+            try {
+              value = JSON.parse(value || '[]');
+            } catch (e) {
+              value = [];
+            }
+          } else if (['deliveryFee', 'rating'].includes(header)) {
+            value = Number(value);
+          }
+
+          importedData[header] = value;
+        });
+
+        setCurrentBusiness(prev => ({
+          ...prev,
+          ...importedData,
+          id: prev?.id // Preservar ID si existe
+        }));
+        
+        alert('✅ Configuración importada con éxito. Revisa los datos y guarda los cambios.');
+      } catch (err) {
+        console.error('Error al importar:', err);
+        alert('❌ Error al procesar el archivo. Asegúrate de que sea un CSV válido exportado desde este panel.');
+      }
+    };
+    reader.readAsText(file);
+    // Resetear input para permitir importar el mismo archivo de nuevo
+    e.target.value = '';
+  };
+
+
   const handlePrint = () => {
     window.print();
   };
@@ -1236,6 +1558,26 @@ export const AdminPanel = () => {
     }
   };
 
+  const exportUsersToExcel = () => {
+    const headers = ['Nombre', 'Email', 'Estado', 'Rol'];
+    const csvRows = filteredUsers.map(u => [
+      u.name || 'Sin nombre',
+      u.email,
+      u.status === 'active' ? 'Activo' : 'Inactivo',
+      u.role || 'user'
+    ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','));
+    
+    const csvContent = '\uFEFF' + [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `usuarios_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleSaveDriver = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!currentDriver?.name) return;
@@ -1265,6 +1607,98 @@ export const AdminPanel = () => {
     }
     setIsEditingDriver(false);
     setCurrentDriver(null);
+  };
+
+  const exportDriversToExcel = () => {
+    const data = drivers.map(d => ({
+      ID: d.id,
+      Nombre: d.name,
+      Email: d.email,
+      Teléfono: d.phone,
+      DNI: d.dni,
+      Dirección: d.address,
+      Estado: d.status === 'active' ? 'Activo' : d.status === 'blocked' ? 'Bloqueado' : 'Inactivo',
+      Calificación: d.rating,
+      Entregas: d.totalDeliveries,
+      'Nº Licencia': d.licenseNumber,
+      'Tipo Licencia': d.licenseType,
+      'Vence Licencia': d.licenseExpiry,
+      'Tipo Vehículo': d.vehicle?.type,
+      Modelo: d.vehicle?.model,
+      Patente: d.vehicle?.plate,
+      Color: d.vehicle?.color,
+      Año: d.vehicle?.year,
+      'Póliza Seguro': d.vehicle?.insurancePolicy,
+      'Vence Seguro': d.vehicle?.insuranceExpiry,
+      Saldo: d.balance,
+      'Fecha Ingreso': d.joinedAt
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Conductores");
+    XLSX.writeFile(wb, `conductores_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const importDriversFromExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+        if (confirm(`¿Estás seguro de importar ${data.length} conductores? Esto podría duplicar registros si los IDs ya existen.`)) {
+          data.forEach(item => {
+            const driver: Driver = {
+              id: item.ID || `drv-${Math.random().toString(36).substr(2, 9)}`,
+              name: item.Nombre || '',
+              email: item.Email || '',
+              phone: item.Teléfono || '',
+              dni: item.DNI || '',
+              address: item.Dirección || '',
+              avatar: item.Avatar || 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
+              status: item.Estado === 'Activo' ? 'active' : item.Estado === 'Bloqueado' ? 'blocked' : 'inactive',
+              rating: Number(item.Calificación) || 5.0,
+              totalDeliveries: Number(item.Entregas) || 0,
+              licenseNumber: item['Nº Licencia'] || '',
+              licenseType: item['Tipo Licencia'] || '',
+              licenseExpiry: item['Vence Licencia'] || '',
+              vehicle: {
+                type: item['Tipo Vehículo'] || 'moto',
+                model: item.Modelo || '',
+                plate: item.Patente || '',
+                color: item.Color || '',
+                year: item.Año || '',
+                insurancePolicy: item['Póliza Seguro'] || '',
+                insuranceExpiry: item['Vence Seguro'] || ''
+              },
+              balance: Number(item.Saldo) || 0,
+              joinedAt: item['Fecha Ingreso'] || new Date().toISOString()
+            };
+            
+            // Check if exists to update or add
+            const exists = drivers.find(d => d.id === driver.id);
+            if (exists) {
+              updateDriver(driver);
+            } else {
+              addDriver(driver);
+            }
+          });
+          alert('✅ Importación completada con éxito.');
+        }
+      } catch (err) {
+        console.error('Error importing Excel:', err);
+        alert('❌ Error al procesar el archivo Excel. Asegúrate de que el formato sea correcto.');
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = ''; // Reset input
   };
 
   const handleSaveCoupon = async (e: React.FormEvent) => {
@@ -1315,32 +1749,74 @@ export const AdminPanel = () => {
     setCurrentCoupon(null);
   };
 
-  const deleteCoupon = async (id: string) => {
-    if (window.confirm('¿Estás seguro de eliminar este cupón?')) {
-      await supabase.from('promotions').delete().eq('id', id);
-      setCoupons(coupons.filter(c => c.id !== id));
+  // Cupones gestionados en el bloque inferior (auditoría avanzada)
+
+  const handleSaveBanner = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!currentBanner) return;
+
+    try {
+      setIsSaving(true);
+      console.log('[AdminPanel] Saving banner:', currentBanner);
+      
+      let finalImageUrl = currentBanner.image_url;
+      if (finalImageUrl?.startsWith('data:image')) {
+        finalImageUrl = await uploadImageToStorage(finalImageUrl, 'banners');
+      }
+
+      const bannerData = {
+        title: currentBanner.title,
+        subtitle: currentBanner.subtitle,
+        image_url: finalImageUrl,
+        duration_ms: currentBanner.duration_ms,
+        start_date: currentBanner.start_date,
+        end_date: currentBanner.end_date,
+        is_active: currentBanner.is_active,
+        sort_order: currentBanner.sort_order || 0
+      };
+
+      if (currentBanner.id) {
+        const { error } = await supabase
+          .from('promotional_banners')
+          .update(bannerData)
+          .eq('id', currentBanner.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('promotional_banners')
+          .insert([bannerData]);
+        if (error) throw error;
+      }
+
+      // Refresh banners
+      const { data } = await supabase.from('promotional_banners').select('*').order('sort_order', { ascending: true });
+      if (data) setBanners(data);
+      
+      setIsEditingBanner(false);
+      setCurrentBanner(null);
+      alert('✅ Banner guardado correctamente.');
+    } catch (error: any) {
+      console.error('Error saving banner:', error);
+      alert('❌ Error al guardar banner: ' + (error.message || 'Error desconocido'));
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const toggleCouponStatus = async (id: string) => {
-    const coupon = coupons.find(c => c.id === id);
-    if (!coupon) return;
-    
-    // Toggle valid_until to past or future to simulate status change
-    const newDate = new Date(coupon.valid_until) > new Date() 
-      ? new Date(Date.now() - 86400000).toISOString() // Yesterday
-      : new Date(Date.now() + 86400000 * 30).toISOString(); // 30 days from now
-      
-    const { data } = await supabase
-      .from('promotions')
-      .update({ valid_until: newDate })
-      .eq('id', id)
-      .select()
-      .single();
-      
-    if (data) {
-      setCoupons(coupons.map(c => c.id === id ? data : c));
+  const deleteBanner = async (id: string) => {
+    if (window.confirm('¿Estás seguro de eliminar este banner promocional?')) {
+      const { error } = await supabase.from('promotional_banners').delete().eq('id', id);
+      if (error) alert('Error: ' + error.message);
+      else setBanners(banners.filter(b => b.id !== id));
     }
+  };
+
+  const toggleBannerStatus = async (id: string) => {
+    const banner = banners.find(b => b.id === id);
+    if (!banner) return;
+    const { error } = await supabase.from('promotional_banners').update({ is_active: !banner.is_active }).eq('id', id);
+    if (error) alert('Error: ' + error.message);
+    else setBanners(banners.map(b => b.id === id ? { ...b, is_active: !banner.is_active } : b));
   };
 
   const filteredBusinesses = businesses.filter(b => 
@@ -1396,11 +1872,139 @@ export const AdminPanel = () => {
     }
   };
 
-  const filteredOrders = orders.filter(o => 
-    o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.profiles?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.businesses?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredOrders = orders.filter(o => {
+    const matchesSearch = o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.profiles?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.businesses?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
+    const matchesBusiness = orderBusinessFilter === 'all' || o.business_id === orderBusinessFilter;
+    
+    let matchesDate = true;
+    if (orderDateFilter) {
+      const orderDate = new Date(o.created_at).toISOString().split('T')[0];
+      matchesDate = orderDate === orderDateFilter;
+    }
+    
+    return matchesSearch && matchesStatus && matchesBusiness && matchesDate;
+  });
+
+  const exportOrdersToExcel = () => {
+    const data = filteredOrders.map(o => ({
+      ID: o.id,
+      Fecha: new Date(o.created_at).toLocaleString(),
+      Cliente: o.profiles?.name || 'Anónimo',
+      Comercio: o.businesses?.name || 'N/A',
+      'Subtotal (Original)': o.original_total || o.total,
+      Descuento: o.discount_amount || 0,
+      Total: o.total,
+      Cupón: o.promotions?.code || 'Ninguno',
+      Estado: getStatusInfo(o.status).label,
+      Dirección: o.delivery_address || 'N/A'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pedidos");
+    XLSX.writeFile(wb, `pedidos_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const exportBusinessConfig = async (business: Business) => {
+    const { data: products } = await supabase
+      .from('products')
+      .select('*')
+      .eq('business_id', business.id);
+
+    const businessSheet = XLSX.utils.json_to_sheet([business]);
+    const productsSheet = XLSX.utils.json_to_sheet(products || []);
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, businessSheet, "Configuración");
+    XLSX.utils.book_append_sheet(wb, productsSheet, "Menú");
+
+    XLSX.writeFile(wb, `config_${business.name.replace(/\s+/g, '_')}.xlsx`);
+  };
+
+  const importBusinessConfig = async (e: React.ChangeEvent<HTMLInputElement>, businessId: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const menuSheet = workbook.Sheets["Menú"];
+        if (menuSheet) {
+          const products = XLSX.utils.sheet_to_json(menuSheet);
+          const productsToUpsert = products.map((p: any) => {
+            const { id, created_at, ...cleanProduct } = p;
+            return { ...cleanProduct, business_id: businessId };
+          });
+          const { error } = await supabase.from('products').upsert(productsToUpsert);
+          if (error) throw error;
+          alert("✅ Menú importado correctamente.");
+          // Refresh products if needed or just notify
+        }
+      } catch (error: any) {
+        alert("❌ Error importando configuración: " + error.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
+  // Funciones de conductores e importación unificadas arriba
+
+  const deleteCoupon = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este cupón?')) return;
+    const { error } = await supabase.from('promotions').delete().eq('id', id);
+    if (error) alert(error.message);
+    else setCoupons(coupons.filter(c => c.id !== id));
+  };
+
+  const toggleCouponStatus = async (id: string) => {
+    const coupon = coupons.find(c => c.id === id);
+    if (!coupon) return;
+
+    const isActive = new Date(coupon.valid_until) > new Date();
+    const newDate = isActive
+      ? new Date(Date.now() - 86400000).toISOString() // Deactivate (yesterday)
+      : new Date(Date.now() + 2592000000).toISOString(); // Activate (+1 month)
+
+    const { error } = await supabase
+      .from('promotions')
+      .update({ valid_until: newDate })
+      .eq('id', id);
+
+    if (error) {
+      alert("Error: " + error.message);
+    } else {
+      setCoupons(coupons.map(c => c.id === id ? { ...c, valid_until: newDate } : c));
+    }
+  };
+
+  const viewCouponUsage = async (couponId: string) => {
+    const coupon = coupons.find(c => c.id === couponId);
+    setSelectedCouponForUsage(coupon?.code || couponId);
+    setShowUsageModal(true);
+    setLoadingUsage(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, created_at, total, profiles!orders_user_id_fkey(name, email)')
+        .eq('coupon_id', couponId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setCouponUsage(data || []);
+    } catch (error: any) {
+      console.error('Error fetching coupon usage:', error);
+      alert('Error al obtener historial: ' + error.message);
+    } finally {
+      setLoadingUsage(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-surface pt-16 flex">
@@ -1448,6 +2052,7 @@ export const AdminPanel = () => {
               { id: 'kitchen', label: 'Cocina', icon: UtensilsCrossed },
               { id: 'drivers', label: 'Conductores', icon: Truck },
               { id: 'discounts', label: 'Descuentos', icon: Tag },
+              { id: 'banners', label: 'Banners', icon: ImageIcon },
               { id: 'notifications', label: 'Notificaciones', icon: Bell },
               { id: 'administration', label: 'Administración', icon: ShieldCheck },
             ].map((item) => (
@@ -1504,6 +2109,7 @@ export const AdminPanel = () => {
                  activeTab === 'kitchen' ? 'Panel de Cocina' : 
                  activeTab === 'drivers' ? 'Gestión de Conductores' : 
                  activeTab === 'discounts' ? 'Gestión de Descuentos' : 
+                 activeTab === 'banners' ? 'Banners Promocionales' : 
                  activeTab === 'notifications' ? 'Centro de Notificaciones' : 
                  activeTab === 'administration' ? 'Administración de Accesos' : 
                  activeTab === 'logs' ? 'Logs de Actividad' : 'Configuración Global'}
@@ -1516,6 +2122,7 @@ export const AdminPanel = () => {
                  activeTab === 'kitchen' ? 'Pedidos entrantes para preparación inmediata.' : 
                  activeTab === 'drivers' ? 'Administra a los repartidores activos de la plataforma.' : 
                  activeTab === 'discounts' ? 'Crea y gestiona cupones globales.' : 
+                 activeTab === 'banners' ? 'Gestiona los anuncios dinámicos de la página principal.' : 
                  activeTab === 'notifications' ? 'Envía mensajes y promociones push a tus usuarios.' : 
                  activeTab === 'administration' ? 'Asigna roles y permisos de acceso a los usuarios del sistema.' : 
                  activeTab === 'logs' ? 'Registro detallado de acciones y eventos del sistema.' : 'Ajustes del sistema.'}
@@ -1596,6 +2203,26 @@ export const AdminPanel = () => {
                       >
                         <Printer size={16} />
                         <span>Imprimir</span>
+                      </button>
+                    </div>
+                  )}
+                  {activeTab === 'users' && (
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={exportUsersToExcel}
+                        className="bg-[#1D6F42]/10 text-[#1D6F42] px-4 py-2 rounded-xl font-medium text-xs flex items-center space-x-2 hover:bg-[#1D6F42]/20 transition-all border border-[#1D6F42]/20"
+                        title="Exportar a Excel"
+                      >
+                        <FileSpreadsheet size={16} />
+                        <span>Excel</span>
+                      </button>
+                      <button 
+                        onClick={handlePrint}
+                        className="bg-red-500/10 text-red-600 px-4 py-2 rounded-xl font-medium text-xs flex items-center space-x-2 hover:bg-red-500/20 transition-all border border-red-500/20"
+                        title="Exportar a PDF"
+                      >
+                        <FileText size={16} />
+                        <span>PDF</span>
                       </button>
                     </div>
                   )}
@@ -1681,9 +2308,35 @@ export const AdminPanel = () => {
                                 <MenuIcon size={14} />
                                 <span>Menú</span>
                               </button>
+                              <div className="relative">
+                                <label className="flex items-center space-x-1 px-3 py-1.5 bg-surface text-muted rounded-lg hover:bg-[#1D6F42] hover:text-white transition-all font-medium text-xs cursor-pointer" title="Importar Menú (Excel)">
+                                  <FileUp size={14} />
+                                  <span>Importar</span>
+                                  <input type="file" accept=".xlsx, .xls" className="hidden" onChange={(e) => importBusinessConfig(e, biz.id)} />
+                                </label>
+                              </div>
+                              <button 
+                                onClick={() => exportBusinessConfig(biz)}
+                                className="flex items-center space-x-1 px-3 py-1.5 bg-surface text-muted rounded-lg hover:bg-[#1D6F42] hover:text-white transition-all font-medium text-xs"
+                                title="Exportar Configuración y Menú (Excel)"
+                              >
+                                <FileDown size={14} />
+                                <span>Exportar</span>
+                              </button>
                               <button 
                                 onClick={() => {
-                                  setCurrentBusiness(biz);
+                                  setCurrentBusiness({
+                                    ...biz,
+                                    openingHours: biz.openingHours?.length ? biz.openingHours : [
+                                      { day: 'Lunes', open: '09:00', close: '22:00', closed: false },
+                                      { day: 'Martes', open: '09:00', close: '22:00', closed: false },
+                                      { day: 'Miércoles', open: '09:00', close: '22:00', closed: false },
+                                      { day: 'Jueves', open: '09:00', close: '22:00', closed: false },
+                                      { day: 'Viernes', open: '09:00', close: '23:00', closed: false },
+                                      { day: 'Sábado', open: '10:00', close: '23:00', closed: false },
+                                      { day: 'Domingo', open: '10:00', close: '21:00', closed: true },
+                                    ]
+                                  });
                                   setIsEditingBusiness(true);
                                 }}
                                 className="flex items-center space-x-1 px-3 py-1.5 bg-surface text-muted rounded-lg hover:bg-primary hover:text-dark transition-all font-medium text-xs"
@@ -1703,7 +2356,7 @@ export const AdminPanel = () => {
                       <tr>
                         <th className="px-6 py-4 text-xs font-medium text-muted uppercase tracking-widest">Usuario</th>
                         <th className="px-6 py-4 text-xs font-medium text-muted uppercase tracking-widest">Email</th>
-                        <th className="px-6 py-4 text-xs font-medium text-muted uppercase tracking-widest">Rol</th>
+
                         <th className="px-6 py-4 text-xs font-medium text-muted uppercase tracking-widest">Estado</th>
                         <th className="px-6 py-4 text-xs font-medium text-muted uppercase tracking-widest text-right no-print">Acciones</th>
                       </tr>
@@ -1737,32 +2390,7 @@ export const AdminPanel = () => {
                               : user.email
                             }
                           </td>
-                          <td className="px-6 py-4">
-                            {isSuperAdmin ? (
-                              <select 
-                                value={user.role}
-                                onChange={(e) => updateUserRole(user.id, e.target.value as Role)}
-                                className="bg-surface border border-surface rounded-md text-[10px] font-medium uppercase p-1 focus:outline-none"
-                              >
-                                <option value="user">Cliente</option>
-                                <option value="repartidor">Conductor</option>
-                                <option value="cocina">Cocina</option>
-                                <option value="comercio">Comercio</option>
-                                <option value="admin">Admin</option>
-                                <option value="super_admin">Super Admin</option>
-                              </select>
-                            ) : (
-                              <span className={`px-2 py-1 rounded-md text-[10px] font-medium uppercase ${
-                                user.role === 'super_admin' ? 'bg-amber-100 text-amber-700' :
-                                user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 
-                                user.role === 'cocina' ? 'bg-blue-100 text-blue-700' :
-                                user.role === 'repartidor' ? 'bg-orange-100 text-orange-700' :
-                                user.role === 'comercio' ? 'bg-amber-100 text-amber-700' : 'bg-surface text-muted'
-                              }`}>
-                                {user.role === 'super_admin' ? '👑 Super Admin' : user.role}
-                              </span>
-                            )}
-                          </td>
+
                           <td className="px-6 py-4">
                             {isProtectedSuperAdmin ? (
                               <span className="px-3 py-1 rounded-full text-[10px] font-medium uppercase bg-amber-100 text-amber-700">
@@ -1809,16 +2437,108 @@ export const AdminPanel = () => {
             <div className="bg-white rounded-2xl border border-surface shadow-sm overflow-hidden mb-12">
               <div className="p-6 border-b border-surface flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h2 className="text-xl font-medium text-dark">Listado de Pedidos</h2>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+                    <input 
+                      type="text" 
+                      placeholder="Buscar pedido o cliente..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="bg-surface border border-surface rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-48"
+                    />
+                  </div>
+
+                  <select
+                    value={orderBusinessFilter}
+                    onChange={(e) => setOrderBusinessFilter(e.target.value)}
+                    className="bg-surface border border-surface rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="all">Todos los locales</option>
+                    {businesses.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={orderStatusFilter}
+                    onChange={(e) => setOrderStatusFilter(e.target.value)}
+                    className="bg-surface border border-surface rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="all">Todos los estados</option>
+                    <option value="pending">Pendiente</option>
+                    <option value="confirmed">En Cocina</option>
+                    <option value="ready">Listo para Envío</option>
+                    <option value="assigned">Conductor Asignado</option>
+                    <option value="picked_up">En Camino</option>
+                    <option value="delivered">Entregado</option>
+                    <option value="cancelled">Cancelado</option>
+                  </select>
+
                   <input 
-                    type="text" 
-                    placeholder="Buscar pedido, cliente o comercio..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-surface border border-surface rounded-2xl py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    type="date"
+                    value={orderDateFilter}
+                    onChange={(e) => setOrderDateFilter(e.target.value)}
+                    className="bg-surface border border-surface rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
+                  
+                  {(orderStatusFilter !== 'all' || orderBusinessFilter !== 'all' || orderDateFilter !== '' || searchQuery !== '') && (
+                    <button 
+                      onClick={() => {
+                        setOrderStatusFilter('all');
+                        setOrderBusinessFilter('all');
+                        setOrderDateFilter('');
+                        setSearchQuery('');
+                      }}
+                      className="p-2 text-muted hover:text-accent transition-colors"
+                      title="Limpiar filtros"
+                    >
+                      <XCircle size={20} />
+                    </button>
+                  )}
+                  
+                  <button 
+                    onClick={exportOrdersToExcel}
+                    className="bg-[#1D6F42]/10 text-[#1D6F42] px-4 py-2 rounded-xl font-medium text-xs flex items-center space-x-2 hover:bg-[#1D6F42]/20 transition-all border border-[#1D6F42]/20"
+                    title="Exportar a Excel"
+                  >
+                    <FileSpreadsheet size={16} />
+                    <span>Exportar</span>
+                  </button>
                 </div>
+              </div>
+
+              {/* Status Quick Filters */}
+              <div className="p-4 bg-surface/50 border-b border-surface flex flex-wrap gap-2 no-print">
+                {[
+                  { id: 'pending', label: 'Nuevo', color: 'bg-yellow-500' },
+                  { id: 'confirmed', label: 'En Cocina', color: 'bg-blue-500' },
+                  { id: 'ready', label: 'Terminado', color: 'bg-purple-500' },
+                  { id: 'picked_up', label: 'En Camino', color: 'bg-orange-500' },
+                  { id: 'delivered', label: 'Entregado', color: 'bg-green-500' },
+                  { id: 'cancelled', label: 'Cancelado', color: 'bg-red-500' }
+                ].map(status => (
+                  <button
+                    key={status.id}
+                    onClick={() => setOrderStatusFilter(status.id)}
+                    className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all flex items-center space-x-2 ${
+                      orderStatusFilter === status.id 
+                        ? `${status.color} text-white shadow-lg` 
+                        : 'bg-white text-muted hover:bg-surface border border-surface'
+                    }`}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${orderStatusFilter === status.id ? 'bg-white' : status.color}`} />
+                    <span>{status.label}</span>
+                  </button>
+                ))}
+                {orderStatusFilter !== 'all' && (
+                  <button
+                    onClick={() => setOrderStatusFilter('all')}
+                    className="px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-dark text-white shadow-lg transition-all"
+                  >
+                    Ver Todos
+                  </button>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -1865,96 +2585,237 @@ export const AdminPanel = () => {
             </div>
           )}
 
-          {activeTab === 'kitchen' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-              {orders.filter(o => ['pending', 'confirmed', 'ready'].includes(o.status)).length === 0 ? (
-                <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-surface">
-                  <UtensilsCrossed size={48} className="mx-auto text-muted mb-4 opacity-20" />
-                  <p className="text-muted font-medium">No hay pedidos pendientes en cocina.</p>
-                </div>
-              ) : (
-                orders.filter(o => ['pending', 'confirmed', 'ready'].includes(o.status)).map((order) => (
-                  <div key={order.id} className="bg-white rounded-3xl border border-surface shadow-sm overflow-hidden flex flex-col">
-                    <div className={`p-4 flex justify-between items-center ${order.status === 'pending' ? 'bg-yellow-50' : 'bg-blue-50'}`}>
-                      <div>
-                        <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Pedido #{order.id.split('-')[0]}</p>
-                        <p className="text-xs text-muted">{new Date(order.created_at).toLocaleTimeString()}</p>
-                      </div>
-                      <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${getStatusInfo(order.status).color}`}>
-                        {getStatusInfo(order.status).label}
-                      </span>
+          {activeTab === 'kitchen' && (() => {
+            const filteredKitchenOrders = orders.filter(o => {
+              const matchesSearch = o.id.toLowerCase().includes(kitchenSearchQuery.toLowerCase()) ||
+                o.businesses?.name?.toLowerCase().includes(kitchenSearchQuery.toLowerCase());
+              
+              const matchesBusiness = kitchenBusinessFilter === 'all' || o.business_id === kitchenBusinessFilter;
+              
+              let matchesStatus = false;
+              if (kitchenStatusFilter === 'active') {
+                matchesStatus = ['pending', 'confirmed', 'ready', 'assigned', 'picked_up', 'delivering'].includes(o.status);
+              } else if (kitchenStatusFilter === 'delivering') {
+                matchesStatus = ['assigned', 'picked_up', 'delivering'].includes(o.status);
+              } else {
+                matchesStatus = o.status === kitchenStatusFilter;
+              }
+
+              return matchesSearch && matchesStatus && matchesBusiness;
+            });
+
+            return (
+              <div className="mb-12">
+                <div className="mb-8 space-y-4">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setKitchenStatusFilter('active')}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                          kitchenStatusFilter === 'active' ? 'bg-dark text-white shadow-lg' : 'bg-white text-muted hover:bg-surface border border-surface'
+                        }`}
+                      >
+                        Todos los Activos
+                      </button>
+                      <button
+                        onClick={() => setKitchenStatusFilter('pending')}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                          kitchenStatusFilter === 'pending' ? 'bg-yellow-400 text-dark shadow-lg shadow-yellow-200' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border border-yellow-200'
+                        }`}
+                      >
+                        Nuevos Pedidos
+                      </button>
+                      <button
+                        onClick={() => setKitchenStatusFilter('confirmed')}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                          kitchenStatusFilter === 'confirmed' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                        }`}
+                      >
+                        En Cocina
+                      </button>
+                      <button
+                        onClick={() => setKitchenStatusFilter('ready')}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                          kitchenStatusFilter === 'ready' ? 'bg-purple-600 text-white shadow-lg shadow-purple-200' : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
+                        }`}
+                      >
+                        Terminados
+                      </button>
+                      <button
+                        onClick={() => setKitchenStatusFilter('delivering')}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                          kitchenStatusFilter === 'delivering' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200'
+                        }`}
+                      >
+                        Entregado a Conductor
+                      </button>
+                      <button
+                        onClick={() => setKitchenStatusFilter('delivered')}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                          kitchenStatusFilter === 'delivered' ? 'bg-green-600 text-white shadow-lg shadow-green-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+                        }`}
+                      >
+                        Recibido
+                      </button>
                     </div>
-                    <div className="p-6 flex-1">
-                      <div className="mb-4">
-                        <p className="text-xs font-medium text-muted uppercase mb-2">Comercio</p>
-                        <p className="font-bold text-dark">{order.businesses?.name}</p>
-                      </div>
-                      <div className="space-y-3">
-                        <p className="text-xs font-medium text-muted uppercase">Items a preparar</p>
-                        {order.order_items?.map((item: any) => (
-                          <div key={item.id} className="flex justify-between items-center bg-surface p-3 rounded-2xl">
-                            <div className="flex items-center space-x-3">
-                              <span className="bg-primary text-dark w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs">{item.quantity}</span>
-                              <span className="font-medium text-dark text-sm">{item.products?.name}</span>
-                            </div>
-                          </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                      <select
+                        value={kitchenBusinessFilter}
+                        onChange={(e) => setKitchenBusinessFilter(e.target.value)}
+                        className="bg-white border border-surface rounded-2xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm w-full sm:w-48"
+                      >
+                        <option value="all">Todos los locales</option>
+                        {businesses.map(b => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
                         ))}
+                      </select>
+
+                      <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+                        <input 
+                          type="text" 
+                          placeholder="Buscar pedido..."
+                          value={kitchenSearchQuery}
+                          onChange={(e) => setKitchenSearchQuery(e.target.value)}
+                          className="bg-white border border-surface rounded-2xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-full shadow-sm"
+                        />
                       </div>
+                      
+                      {(kitchenStatusFilter !== 'active' || kitchenBusinessFilter !== 'all' || kitchenSearchQuery !== '') && (
+                        <button 
+                          onClick={() => {
+                            setKitchenStatusFilter('active');
+                            setKitchenBusinessFilter('all');
+                            setKitchenSearchQuery('');
+                          }}
+                          className="p-2 text-muted hover:text-accent transition-colors"
+                          title="Limpiar filtros"
+                        >
+                          <XCircle size={20} />
+                        </button>
+                      )}
                     </div>
-                     <div className="p-4 bg-surface border-t border-surface space-y-2">
-                       {order.status === 'pending' ? (
-                         <button 
-                           onClick={() => updateOrderStatus(order.id, 'confirmed')}
-                           className="w-full bg-blue-600 text-white py-3 rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all flex items-center justify-center space-x-2"
-                         >
-                           <CheckCircle size={18} />
-                           <span>Aceptar y Empezar</span>
-                         </button>
-                       ) : order.status === 'confirmed' ? (
-                         <button 
-                           onClick={() => updateOrderStatus(order.id, 'ready')}
-                           className="w-full bg-purple-600 text-white py-3 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all flex items-center justify-center space-x-2"
-                         >
-                           <Truck size={18} />
-                           <span>✨ Listo — Notificar Conductores</span>
-                         </button>
-                       ) : (
-                         <div className="flex items-center justify-center space-x-2 bg-green-50 text-green-700 py-3 rounded-2xl text-sm font-bold">
-                           <CheckCircle size={16} />
-                           <span>Esperando conductor...</span>
-                         </div>
-                       )}
-                       <button 
-                         onClick={() => updateOrderStatus(order.id, 'cancelled')}
-                         className="w-full bg-red-50 text-red-600 py-2 rounded-2xl font-medium text-sm hover:bg-red-100 transition-all"
-                       >
-                         Cancelar Pedido
-                       </button>
-                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredKitchenOrders.length === 0 ? (
+                    <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-surface">
+                      <UtensilsCrossed size={48} className="mx-auto text-muted mb-4 opacity-20" />
+                      <p className="text-muted font-medium">No se encontraron pedidos con estos filtros.</p>
+                    </div>
+                  ) : (
+                    filteredKitchenOrders.map((order) => (
+                      <div key={order.id} className="bg-white rounded-3xl border border-surface shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all">
+                        <div className={`p-4 flex justify-between items-center ${
+                          order.status === 'pending' ? 'bg-yellow-50' : 
+                          order.status === 'confirmed' ? 'bg-blue-50' : 
+                          order.status === 'ready' ? 'bg-purple-50' : 'bg-green-50'
+                        }`}>
+                          <div>
+                            <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Pedido #{order.id.split('-')[0]}</p>
+                            <p className="text-xs text-muted">{new Date(order.created_at).toLocaleTimeString()}</p>
+                          </div>
+                          <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${getStatusInfo(order.status).color}`}>
+                            {getStatusInfo(order.status).label}
+                          </span>
+                        </div>
+                        <div className="p-6 flex-1">
+                          <div className="mb-4">
+                            <p className="text-xs font-medium text-muted uppercase mb-2">Comercio</p>
+                            <p className="font-bold text-dark">{order.businesses?.name}</p>
+                          </div>
+                          <div className="space-y-3">
+                            <p className="text-xs font-medium text-muted uppercase">Items a preparar</p>
+                            {order.order_items?.map((item: any) => (
+                              <div key={item.id} className="flex justify-between items-center bg-surface p-3 rounded-2xl">
+                                <div className="flex items-center space-x-3">
+                                  <span className="bg-primary text-dark w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs">{item.quantity}</span>
+                                  <span className="font-medium text-dark text-sm">{item.products?.name}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="p-4 bg-surface border-t border-surface space-y-2">
+                          {order.status === 'pending' ? (
+                            <button 
+                              onClick={() => updateOrderStatus(order.id, 'confirmed')}
+                              className="w-full bg-blue-600 text-white py-3 rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all flex items-center justify-center space-x-2"
+                            >
+                              <CheckCircle size={18} />
+                              <span>Aceptar y Empezar</span>
+                            </button>
+                          ) : order.status === 'confirmed' ? (
+                            <button 
+                              onClick={() => updateOrderStatus(order.id, 'ready')}
+                              className="w-full bg-purple-600 text-white py-3 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all flex items-center justify-center space-x-2"
+                            >
+                              <Truck size={18} />
+                              <span>✨ Listo — Notificar Conductores</span>
+                            </button>
+                          ) : (
+                            <div className="flex items-center justify-center space-x-2 bg-green-50 text-green-700 py-3 rounded-2xl text-sm font-bold">
+                              <CheckCircle size={16} />
+                              <span>{getStatusInfo(order.status).label}</span>
+                            </div>
+                          )}
+                          {['pending', 'confirmed', 'ready'].includes(order.status) && (
+                            <button 
+                              onClick={() => updateOrderStatus(order.id, 'cancelled')}
+                              className="w-full bg-red-50 text-red-600 py-2 rounded-2xl font-medium text-sm hover:bg-red-100 transition-all"
+                            >
+                              Cancelar Pedido
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {activeTab === 'discounts' && (
             <div className="space-y-8">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-medium text-dark">Cupones Globales</h2>
-                <button 
-                  onClick={() => {
-                    setCurrentCoupon({ code: '', type: 'percentage', value: 0, description: '' });
-                    setIsEditingCoupon(true);
-                  }}
-                  className="bg-primary text-dark px-6 py-3 rounded-2xl font-medium flex items-center space-x-2 hover:bg-accent transition-all shadow-lg shadow-primary/20"
-                >
-                  <Plus size={20} />
-                  <span>Nuevo Cupón Global</span>
-                </button>
+                <div className="flex items-center space-x-4">
+                  <div className="flex bg-white rounded-xl p-1 border border-surface shadow-sm">
+                    {['all', 'active', 'inactive'].map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setCouponStatusFilter(f as any)}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${
+                          couponStatusFilter === f ? 'bg-dark text-white' : 'text-muted hover:bg-surface'
+                        }`}
+                      >
+                        {f === 'all' ? 'Todos' : f === 'active' ? 'Activos' : 'Inactivos'}
+                      </button>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setCurrentCoupon({ code: '', type: 'percentage', value: 0, description: '' });
+                      setIsEditingCoupon(true);
+                    }}
+                    className="bg-primary text-dark px-6 py-3 rounded-2xl font-medium flex items-center space-x-2 hover:bg-accent transition-all shadow-lg shadow-primary/20"
+                  >
+                    <Plus size={20} />
+                    <span>Nuevo Cupón Global</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {coupons.map((coupon) => (
+                {coupons.filter(c => {
+                  const isActive = new Date(c.valid_until) > new Date();
+                  if (couponStatusFilter === 'active') return isActive;
+                  if (couponStatusFilter === 'inactive') return !isActive;
+                  return true;
+                }).map((coupon) => (
                   <div key={coupon.id} className="bg-surface rounded-2xl border border-surface shadow-sm p-6 hover:shadow-md transition-all group">
                     <div className="flex justify-between items-start mb-4">
                       <div className="p-3 bg-primary/10 text-primary rounded-2xl">
@@ -1967,6 +2828,13 @@ export const AdminPanel = () => {
                           {new Date(coupon.valid_until) > new Date() ? 'Activo' : 'Inactivo'}
                         </span>
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1">
+                          <button 
+                            onClick={() => viewCouponUsage(coupon.id)}
+                            className="p-1.5 text-muted hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Ver Historial de Canjes"
+                          >
+                            <Users size={14} />
+                          </button>
                           <button 
                             onClick={() => {
                               setCurrentCoupon({
@@ -1998,7 +2866,7 @@ export const AdminPanel = () => {
                         {coupon.discount_percentage}% OFF
                       </span>
                       <div className="flex items-center space-x-3">
-                        <span className="text-xs text-muted font-medium">-</span>
+                        <span className="text-xs text-muted font-medium">Vence: {new Date(coupon.valid_until).toLocaleDateString()}</span>
                         <button 
                           onClick={() => toggleCouponStatus(coupon.id)}
                           className={`text-[10px] font-medium uppercase ${new Date(coupon.valid_until) > new Date() ? 'text-red-500' : 'text-primary'} hover:underline`}
@@ -2020,107 +2888,210 @@ export const AdminPanel = () => {
                   <h2 className="text-3xl font-medium text-dark">Gestión de Conductores</h2>
                   <p className="text-muted">Administra el personal de entrega y sus vehículos.</p>
                 </div>
-                <button 
-                  onClick={() => {
-                    setCurrentDriver({
-                      name: '',
-                      email: '',
-                      phone: '',
-                      dni: '',
-                      address: '',
-                      avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
-                      status: 'active',
-                      vehicle: {
-                        type: 'moto',
-                        model: '',
-                        plate: '',
-                        color: '',
-                        year: '',
-                        insurancePolicy: '',
-                        insuranceExpiry: ''
-                      }
-                    } as any);
-                    setIsEditingDriver(true);
-                  }}
-                  className="bg-primary text-dark px-6 py-3 rounded-2xl font-medium hover:bg-accent transition-all flex items-center justify-center space-x-2 shadow-lg shadow-primary/20"
-                >
-                  <Plus size={20} />
-                  <span>Nuevo Conductor</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center bg-white rounded-2xl p-1 shadow-sm border border-surface no-print">
+                    <button 
+                      onClick={exportDriversToExcel}
+                      className="flex items-center space-x-2 px-4 py-2 hover:bg-surface rounded-xl transition-all text-xs font-bold text-dark"
+                      title="Exportar a Excel"
+                    >
+                      <FileDown size={16} className="text-green-600" />
+                      <span>EXPORTAR</span>
+                    </button>
+                    <div className="w-px h-4 bg-surface mx-1" />
+                    <label className="flex items-center space-x-2 px-4 py-2 hover:bg-surface rounded-xl transition-all text-xs font-bold text-dark cursor-pointer">
+                      <FileUp size={16} className="text-blue-600" />
+                      <span>IMPORTAR</span>
+                      <input type="file" accept=".xlsx, .xls" onChange={importDriversFromExcel} className="hidden" />
+                    </label>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      setCurrentDriver({
+                        name: '',
+                        email: '',
+                        phone: '',
+                        dni: '',
+                        address: '',
+                        avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
+                        status: 'active',
+                        vehicle: {
+                          type: 'moto',
+                          model: '',
+                          plate: '',
+                          color: '',
+                          year: '',
+                          insurancePolicy: '',
+                          insuranceExpiry: ''
+                        }
+                      } as any);
+                      setIsEditingDriver(true);
+                    }}
+                    className="bg-primary text-dark px-6 py-3 rounded-2xl font-medium hover:bg-accent transition-all flex items-center justify-center space-x-2 shadow-lg shadow-primary/20"
+                  >
+                    <Plus size={20} />
+                    <span>Nuevo Conductor</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Filtros de Conductores */}
+              <div className="bg-white p-6 rounded-2xl border border-surface shadow-sm mb-8 no-print">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[
+                      { id: 'all', label: 'Todos', color: 'bg-dark text-white' },
+                      { id: 'active', label: 'Activos', color: 'bg-green-500 text-white' },
+                      { id: 'inactive', label: 'Inactivos', color: 'bg-gray-400 text-white' },
+                      { id: 'blocked', label: 'Bloqueados', color: 'bg-red-500 text-white' },
+                    ].map((filter) => (
+                      <button
+                        key={filter.id}
+                        onClick={() => setDriverStatusFilter(filter.id)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
+                          driverStatusFilter === filter.id 
+                            ? filter.color 
+                            : 'bg-surface text-muted hover:bg-surface/80'
+                        }`}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative w-full md:w-80">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+                    <input 
+                      type="text" 
+                      placeholder="Buscar por nombre o patente..."
+                      value={driverSearchQuery}
+                      onChange={(e) => setDriverSearchQuery(e.target.value)}
+                      className="w-full bg-surface border border-surface rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium text-dark text-sm transition-all"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {drivers.filter(d => 
-                  d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  d.vehicle.plate.toLowerCase().includes(searchQuery.toLowerCase())
-                ).map((driver) => (
-                  <div key={driver.id} className="bg-surface rounded-2xl border border-surface shadow-sm p-6 hover:shadow-md transition-all group">
-                    <div className="flex justify-between items-start mb-6">
+                {drivers.filter(d => {
+                  const matchesSearch = d.name.toLowerCase().includes(driverSearchQuery.toLowerCase()) ||
+                    d.vehicle.plate.toLowerCase().includes(driverSearchQuery.toLowerCase());
+                  
+                  const matchesStatus = driverStatusFilter === 'all' || 
+                    (driverStatusFilter === 'active' && d.status === 'active') ||
+                    (driverStatusFilter === 'inactive' && d.status === 'inactive') ||
+                    (driverStatusFilter === 'blocked' && d.status === 'blocked');
+                  
+                  return matchesSearch && matchesStatus;
+                }).map((driver) => (
+                  <div key={driver.id} className="bg-white rounded-2xl border border-surface shadow-sm p-6 hover:shadow-md transition-all group relative overflow-hidden">
+                    {/* Status Badge Decorative */}
+                    <div className={`absolute top-0 right-0 w-32 h-32 -mr-16 -mt-16 rounded-full opacity-5 transition-transform group-hover:scale-110 ${
+                      driver.status === 'active' ? 'bg-green-500' : driver.status === 'blocked' ? 'bg-red-600' : 'bg-gray-400'
+                    }`} />
+
+                    <div className="flex justify-between items-start mb-6 relative z-10">
                       <div className="flex items-center space-x-4">
-                        <img src={driver.avatar} alt={driver.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-surface shadow-sm" />
+                        <div className="relative">
+                          <img src={driver.avatar} alt={driver.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-surface shadow-sm" />
+                          <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center ${
+                            driver.status === 'active' ? 'bg-green-500' : driver.status === 'blocked' ? 'bg-red-600' : 'bg-gray-400'
+                          }`}>
+                            {driver.status === 'active' ? <CheckCircle size={10} className="text-white" /> : driver.status === 'blocked' ? <ShieldAlert size={10} className="text-white" /> : <XCircle size={10} className="text-white" />}
+                          </div>
+                        </div>
                         <div>
                           <h3 className="font-medium text-dark text-lg leading-tight">{driver.name}</h3>
-                          <p className="text-xs text-muted font-medium">{driver.licenseType || 'Licencia no especificada'}</p>
+                          <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-1">{driver.vehicle?.type || 'Sin vehículo'}</p>
                         </div>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider ${
-                        driver.status === 'active' ? 'bg-primary/20 text-primary' : 'bg-red-50 text-red-500'
+                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                        driver.status === 'active' ? 'bg-green-50 text-green-600' : driver.status === 'blocked' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'
                       }`}>
-                        {driver.status === 'active' ? 'Activo' : 'Inactivo'}
+                        {driver.status === 'active' ? 'Activo' : driver.status === 'blocked' ? 'Bloqueado' : 'Inactivo'}
                       </span>
                     </div>
 
-                    <div className="space-y-3 mb-6">
-                      <div className="flex items-center space-x-3 text-sm text-muted">
-                        <Truck size={16} className="text-primary" />
-                        <span className="font-medium text-dark">{driver.vehicle?.model || 'Sin vehículo'}</span>
-                        {driver.vehicle?.plate && (
-                          <span className="text-[10px] font-medium bg-surface px-2 py-0.5 rounded-lg border border-surface uppercase">{driver.vehicle.plate}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-3 text-sm text-muted">
-                        <Phone size={16} className="text-primary" />
-                        <span>{driver.phone}</span>
-                      </div>
-                      <div className="flex items-center justify-between pt-4 border-t border-surface">
-                        <div className="flex items-center space-x-1">
-                          <Star size={14} className="text-accent fill-accent" />
-                          <span className="text-sm font-medium text-dark">{driver.rating}</span>
+                    <div className="space-y-4 mb-6 relative z-10">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-surface/50 p-3 rounded-2xl border border-surface/50">
+                          <p className="text-[9px] font-bold text-muted uppercase tracking-wider mb-1">Vehículo</p>
+                          <div className="flex items-center space-x-2 text-dark font-medium text-xs">
+                            <Truck size={14} className="text-primary" />
+                            <span className="truncate">{driver.vehicle?.model || 'N/A'}</span>
+                          </div>
                         </div>
-                        <div className="text-xs text-muted">
-                          <span className="font-medium text-dark">{driver.totalDeliveries}</span> entregas
+                        <div className="bg-surface/50 p-3 rounded-2xl border border-surface/50">
+                          <p className="text-[9px] font-bold text-muted uppercase tracking-wider mb-1">Patente</p>
+                          <p className="text-dark font-bold text-xs uppercase">{driver.vehicle?.plate || 'S/P'}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl">
+                        <div className="flex items-center space-x-3">
+                          <div className="bg-primary/20 p-2 rounded-xl text-primary">
+                            <Star size={16} fill="currentColor" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Rating</p>
+                            <p className="font-bold text-dark">{driver.rating}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Entregas</p>
+                          <p className="font-bold text-dark">{driver.totalDeliveries}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 relative z-10">
                       <button 
                         onClick={() => {
                           setCurrentDriver(driver);
                           setIsEditingDriver(true);
                         }}
-                        className="flex-1 bg-surface border border-surface text-dark py-2.5 rounded-xl font-medium text-sm hover:bg-primary/10 hover:text-primary transition-all flex items-center justify-center space-x-2"
+                        className="flex-1 bg-dark text-white py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-accent hover:text-dark transition-all flex items-center justify-center space-x-2 shadow-lg shadow-dark/10"
                       >
-                        <Edit size={14} />
-                        <span>Ver Ficha</span>
+                        <User size={14} />
+                        <span>VER PERFIL</span>
                       </button>
-                      <button 
-                        onClick={() => toggleDriverStatus(driver.id)}
-                        className={`p-2.5 rounded-xl border transition-all ${
-                          driver.status === 'active' 
-                            ? 'border-red-100 text-red-500 hover:bg-red-50' 
-                            : 'border-primary/20 text-primary hover:bg-primary/10'
-                        }`}
-                      >
-                        {driver.status === 'active' ? <XCircle size={18} /> : <CheckCircle size={18} />}
-                      </button>
+                      <div className="flex items-center space-x-1">
+                        <button 
+                          onClick={() => toggleDriverStatus(driver.id)}
+                          className={`p-2.5 rounded-xl border-2 transition-all ${
+                            driver.status === 'active' 
+                              ? 'border-gray-100 text-gray-400 hover:bg-gray-400 hover:text-white' 
+                              : 'border-green-100 text-green-500 hover:bg-green-500 hover:text-white'
+                          }`}
+                          disabled={driver.status === 'blocked'}
+                          title={driver.status === 'active' ? "Desactivar" : "Activar"}
+                        >
+                          {driver.status === 'active' ? <XCircle size={18} /> : <CheckCircle size={18} />}
+                        </button>
+                        <button 
+                          onClick={() => {
+                            const newStatus = driver.status === 'blocked' ? 'inactive' : 'blocked';
+                            updateDriver({...driver, status: newStatus});
+                          }}
+                          className={`p-2.5 rounded-xl border-2 transition-all ${
+                            driver.status === 'blocked'
+                              ? 'border-blue-100 text-blue-500 hover:bg-blue-500 hover:text-white'
+                              : 'border-red-100 text-red-500 hover:bg-red-500 hover:text-white'
+                          }`}
+                          title={driver.status === 'blocked' ? "Desbloquear" : "Bloquear"}
+                        >
+                          {driver.status === 'blocked' ? <ShieldCheck size={18} /> : <ShieldAlert size={18} />}
+                        </button>
+                      </div>
                       <button 
                         onClick={() => {
                           if (confirm('¿Estás seguro de eliminar este conductor?')) {
                             deleteDriver(driver.id);
                           }
                         }}
-                        className="p-2.5 rounded-xl border border-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-all"
+                        className="p-3 rounded-xl border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                        title="Eliminar"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -2129,6 +3100,31 @@ export const AdminPanel = () => {
                 ))}
               </div>
             </div>
+          )}
+
+          {activeTab === 'banners' && (
+            <BannerManagementSection 
+              banners={banners} 
+              onEdit={(banner) => {
+                setCurrentBanner(banner);
+                setIsEditingBanner(true);
+              }}
+              onDelete={deleteBanner}
+              onToggleStatus={toggleBannerStatus}
+              onAdd={() => {
+                setCurrentBanner({
+                  title: '',
+                  subtitle: '',
+                  image_url: 'https://picsum.photos/seed/banner/1200/400',
+                  duration_ms: 5000,
+                  is_active: true,
+                  sort_order: banners.length,
+                  start_date: new Date().toISOString().split('T')[0],
+                  end_date: new Date(Date.now() + 86400000 * 30).toISOString().split('T')[0]
+                });
+                setIsEditingBanner(true);
+              }}
+            />
           )}
 
           {activeTab === 'notifications' && (
@@ -2492,7 +3488,7 @@ export const AdminPanel = () => {
                         <h3 className="font-bold text-dark text-sm uppercase tracking-widest">Apariencia</h3>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <div>
                           <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-3">Logo del Portal</label>
                           <div className="bg-white border border-surface rounded-2xl p-4">
@@ -2513,6 +3509,17 @@ export const AdminPanel = () => {
                               onChange={(val) => setPortalSettings({ ...portalSettings, favicon_url: val })}
                             />
                             <p className="text-[9px] text-muted mt-2 text-center">Recomendado: 512x512px</p>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-3">Imagen Producto (Defecto)</label>
+                          <div className="bg-white border border-surface rounded-2xl p-4">
+                            <ImageUpload 
+                              label="Imagen Predeterminada"
+                              value={portalSettings.default_product_image_url}
+                              onChange={(val) => setPortalSettings({ ...portalSettings, default_product_image_url: val })}
+                            />
+                            <p className="text-[9px] text-muted mt-2 text-center">Recomendado: 800x800px</p>
                           </div>
                         </div>
                       </div>
@@ -2743,12 +3750,38 @@ export const AdminPanel = () => {
                     </div>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setIsEditingBusiness(false)} 
-                  className="p-3 hover:bg-red-50 hover:text-red-500 rounded-full transition-all text-muted group"
-                >
-                  <X size={28} className="group-hover:rotate-90 transition-transform duration-300" />
-                </button>
+                <div className="flex items-center space-x-4">
+                  {currentBusiness?.id && (
+                    <div className="flex bg-white/50 backdrop-blur-sm rounded-2xl p-1 border border-white/20 shadow-sm">
+                      <button
+                        type="button"
+                        onClick={handleExportBusinessConfig}
+                        className="flex items-center space-x-2 px-4 py-2 hover:bg-white rounded-xl transition-all text-dark font-medium text-xs group"
+                      >
+                        <FileDown size={16} className="text-blue-500 group-hover:scale-110 transition-transform" />
+                        <span>Exportar</span>
+                      </button>
+                      <div className="w-px h-4 bg-dark/10 self-center mx-1" />
+                      <label className="flex items-center space-x-2 px-4 py-2 hover:bg-white rounded-xl transition-all text-dark font-medium text-xs cursor-pointer group">
+                        <FileUp size={16} className="text-emerald-500 group-hover:scale-110 transition-transform" />
+                        <span>Importar</span>
+                        <input
+                          type="file"
+                          accept=".csv"
+                          className="hidden"
+                          onChange={handleImportBusinessConfig}
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={() => setIsEditingBusiness(false)} 
+                    className="p-3 hover:bg-red-50 hover:text-red-500 rounded-full transition-all text-muted group"
+                  >
+                    <X size={28} className="group-hover:rotate-90 transition-transform duration-300" />
+                  </button>
+                </div>
               </div>
 
               <form onSubmit={handleSaveBusiness} noValidate className="flex-1 overflow-y-auto p-10 space-y-12 scrollbar-hide">
@@ -2911,60 +3944,65 @@ export const AdminPanel = () => {
                         Horarios de Atención
                       </h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {(currentBusiness?.openingHours || [
-                          { day: 'Lunes', open: '09:00', close: '22:00', closed: false },
-                          { day: 'Martes', open: '09:00', close: '22:00', closed: false },
-                          { day: 'Miércoles', open: '09:00', close: '22:00', closed: false },
-                          { day: 'Jueves', open: '09:00', close: '22:00', closed: false },
-                          { day: 'Viernes', open: '09:00', close: '23:00', closed: false },
-                          { day: 'Sábado', open: '10:00', close: '23:00', closed: false },
-                          { day: 'Domingo', open: '10:00', close: '21:00', closed: true },
-                        ]).map((hour, idx) => (
-                          <div key={idx} className={`p-4 rounded-2xl border ${hour.closed ? 'bg-surface/50 border-surface' : 'bg-white border-surface shadow-sm'}`}>
-                            <p className="text-[10px] font-medium text-dark uppercase mb-2">{hour.day}</p>
-                            <div className="flex items-center space-x-2">
-                              <input 
-                                type="time" 
-                                value={hour.open} 
-                                disabled={hour.closed}
-                                onChange={(e) => {
-                                  const newHours = [...(currentBusiness?.openingHours || [])];
-                                  newHours[idx] = { ...hour, open: e.target.value };
-                                  setCurrentBusiness({ ...currentBusiness, openingHours: newHours });
-                                }}
-                                className="w-full bg-surface rounded-lg px-1 py-1 text-[10px] font-bold text-dark disabled:opacity-30"
-                              />
-                              <span className="text-[8px] text-muted">A</span>
-                              <input 
-                                type="time" 
-                                value={hour.close} 
-                                disabled={hour.closed}
-                                onChange={(e) => {
-                                  const newHours = [...(currentBusiness?.openingHours || [])];
-                                  newHours[idx] = { ...hour, close: e.target.value };
-                                  setCurrentBusiness({ ...currentBusiness, openingHours: newHours });
-                                }}
-                                className="w-full bg-surface rounded-lg px-1 py-1 text-[10px] font-bold text-dark disabled:opacity-30"
-                              />
-                            </div>
-                            <label className="flex items-center mt-3 cursor-pointer">
-                              <input 
-                                type="checkbox" 
-                                checked={!hour.closed}
-                                onChange={(e) => {
-                                  const newHours = [...(currentBusiness?.openingHours || [])];
-                                  newHours[idx] = { ...hour, closed: !e.target.checked };
-                                  setCurrentBusiness({ ...currentBusiness, openingHours: newHours });
-                                }}
-                                className="hidden"
-                              />
-                              <div className={`w-3 h-3 rounded-sm border mr-2 flex items-center justify-center ${!hour.closed ? 'bg-primary border-primary' : 'bg-white border-surface'}`}>
-                                {!hour.closed && <div className="w-1.5 h-1.5 bg-dark rounded-full" />}
+                        {(() => {
+                          const defaultHours = [
+                            { day: 'Lunes', open: '09:00', close: '22:00', closed: false },
+                            { day: 'Martes', open: '09:00', close: '22:00', closed: false },
+                            { day: 'Miércoles', open: '09:00', close: '22:00', closed: false },
+                            { day: 'Jueves', open: '09:00', close: '22:00', closed: false },
+                            { day: 'Viernes', open: '09:00', close: '23:00', closed: false },
+                            { day: 'Sábado', open: '10:00', close: '23:00', closed: false },
+                            { day: 'Domingo', open: '10:00', close: '21:00', closed: true },
+                          ];
+                          const hoursToRender = currentBusiness?.openingHours?.length ? currentBusiness.openingHours : defaultHours;
+                          
+                          return hoursToRender.map((hour, idx) => (
+                            <div key={idx} className={`p-4 rounded-2xl border ${hour.closed ? 'bg-surface/50 border-surface' : 'bg-white border-surface shadow-sm'}`}>
+                              <p className="text-[10px] font-medium text-dark uppercase mb-2">{hour.day}</p>
+                              <div className="flex items-center space-x-2">
+                                <input 
+                                  type="time" 
+                                  value={hour.open} 
+                                  disabled={hour.closed}
+                                  onChange={(e) => {
+                                    const newHours = [...hoursToRender];
+                                    newHours[idx] = { ...hour, open: e.target.value };
+                                    setCurrentBusiness({ ...currentBusiness, openingHours: newHours });
+                                  }}
+                                  className="w-full bg-surface rounded-lg px-1 py-1 text-[10px] font-bold text-dark disabled:opacity-30"
+                                />
+                                <span className="text-[8px] text-muted">A</span>
+                                <input 
+                                  type="time" 
+                                  value={hour.close} 
+                                  disabled={hour.closed}
+                                  onChange={(e) => {
+                                    const newHours = [...hoursToRender];
+                                    newHours[idx] = { ...hour, close: e.target.value };
+                                    setCurrentBusiness({ ...currentBusiness, openingHours: newHours });
+                                  }}
+                                  className="w-full bg-surface rounded-lg px-1 py-1 text-[10px] font-bold text-dark disabled:opacity-30"
+                                />
                               </div>
-                              <span className="text-[9px] font-bold text-muted uppercase ">{hour.closed ? 'Cerrado' : 'Abierto'}</span>
-                            </label>
-                          </div>
-                        ))}
+                              <label className="flex items-center mt-3 cursor-pointer">
+                                <input 
+                                  type="checkbox" 
+                                  checked={!hour.closed}
+                                  onChange={(e) => {
+                                    const newHours = [...hoursToRender];
+                                    newHours[idx] = { ...hour, closed: !e.target.checked };
+                                    setCurrentBusiness({ ...currentBusiness, openingHours: newHours });
+                                  }}
+                                  className="hidden"
+                                />
+                                <div className={`w-3 h-3 rounded-sm border mr-2 flex items-center justify-center ${!hour.closed ? 'bg-primary border-primary' : 'bg-white border-surface'}`}>
+                                  {!hour.closed && <div className="w-1.5 h-1.5 bg-dark rounded-full" />}
+                                </div>
+                                <span className="text-[9px] font-bold text-muted uppercase ">{hour.closed ? 'Cerrado' : 'Abierto'}</span>
+                              </label>
+                            </div>
+                          ));
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -3481,6 +4519,152 @@ export const AdminPanel = () => {
             </motion.div>
           </div>
         )}
+
+        {isEditingBanner && currentBanner && (
+          <div className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="bg-surface w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden border border-white/20"
+            >
+              <div className="p-10">
+                <div className="flex justify-between items-center mb-8">
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-primary/20 p-3 rounded-2xl">
+                      <ImageIcon className="text-accent" size={24} />
+                    </div>
+                    <h3 className="text-2xl font-black text-dark tracking-tight uppercase">
+                      {currentBanner.id ? 'Editar Banner' : 'Nuevo Banner'}
+                    </h3>
+                  </div>
+                  <button 
+                    onClick={() => setIsEditingBanner(false)}
+                    className="p-3 hover:bg-red-50 text-muted hover:text-red-500 transition-all rounded-2xl active:scale-90"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveBanner} className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-3 ml-2">Título del Banner</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={currentBanner.title || ''}
+                          onChange={e => setCurrentBanner({ ...currentBanner, title: e.target.value })}
+                          className="w-full bg-white border-2 border-primary/5 rounded-3xl px-6 py-4 focus:outline-none focus:border-primary/50 font-bold text-dark transition-all placeholder:text-muted/30"
+                          placeholder="Ej: 50% de Descuento en Pizzas"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-3 ml-2">Subtítulo / Texto Corto</label>
+                        <input 
+                          type="text" 
+                          value={currentBanner.subtitle || ''}
+                          onChange={e => setCurrentBanner({ ...currentBanner, subtitle: e.target.value })}
+                          className="w-full bg-white border-2 border-primary/5 rounded-3xl px-6 py-4 focus:outline-none focus:border-primary/50 font-medium text-dark transition-all placeholder:text-muted/30"
+                          placeholder="Ej: Solo por hoy"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-3 ml-2">Duración (milisegundos)</label>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            step="500"
+                            min="1000"
+                            required
+                            value={currentBanner.duration_ms || 5000}
+                            onChange={e => setCurrentBanner({ ...currentBanner, duration_ms: Number(e.target.value) })}
+                            className="w-full bg-white border-2 border-primary/5 rounded-3xl px-6 py-4 focus:outline-none focus:border-primary/50 font-black text-dark transition-all"
+                          />
+                          <div className="absolute right-6 top-1/2 -translate-y-1/2 text-muted font-bold text-[10px] uppercase">ms</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="bg-white p-6 rounded-[2rem] border-2 border-primary/5 shadow-inner">
+                        <label className="block text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-4 text-center">Imagen del Banner</label>
+                        <ImageUpload 
+                          value={currentBanner.image_url || ''} 
+                          onChange={(url) => setCurrentBanner({ ...currentBanner, image_url: url })}
+                        />
+                        <p className="text-[9px] text-center text-muted mt-4 font-medium italic">Recomendado: 1200x400px o similar.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-surface/50 p-8 rounded-[2.5rem] border border-primary/5">
+                    <div className="flex items-center space-x-3 mb-6">
+                      <Calendar className="text-primary" size={20} />
+                      <h4 className="text-xs font-black text-dark uppercase tracking-widest">Programación de Publicación</h4>
+                    </div>
+                    <div className="grid grid-cols-2 gap-8">
+                      <div>
+                        <label className="block text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-3 ml-2">Fecha de Inicio</label>
+                        <input 
+                          type="date" 
+                          value={currentBanner.start_date || ''}
+                          onChange={e => setCurrentBanner({ ...currentBanner, start_date: e.target.value })}
+                          className="w-full bg-white border-2 border-primary/5 rounded-2xl px-5 py-3 focus:outline-none focus:border-primary/50 font-bold text-dark transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-3 ml-2">Fecha de Vencimiento</label>
+                        <input 
+                          type="date" 
+                          value={currentBanner.end_date || ''}
+                          onChange={e => setCurrentBanner({ ...currentBanner, end_date: e.target.value })}
+                          className="w-full bg-white border-2 border-primary/5 rounded-2xl px-5 py-3 focus:outline-none focus:border-primary/50 font-bold text-dark transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4">
+                    <div className="flex items-center space-x-4">
+                      <span className="text-[10px] font-black text-muted uppercase tracking-widest">Estado Inicial</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={currentBanner.is_active}
+                          onChange={(e) => setCurrentBanner({ ...currentBanner, is_active: e.target.checked })}
+                          className="sr-only peer" 
+                        />
+                        <div className="w-14 h-7 bg-muted/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary"></div>
+                      </label>
+                    </div>
+                    <div className="flex space-x-4">
+                      <button 
+                        type="button"
+                        onClick={() => setIsEditingBanner(false)}
+                        className="px-8 py-4 rounded-3xl font-black text-muted hover:bg-surface transition-all text-[10px] uppercase tracking-[0.2em]"
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        type="submit"
+                        disabled={isSaving}
+                        className="bg-primary text-dark px-12 py-4 rounded-3xl font-black hover:bg-accent transition-all shadow-2xl shadow-primary/30 flex items-center space-x-3 text-[10px] uppercase tracking-[0.2em] disabled:opacity-50 active:scale-95"
+                      >
+                        {isSaving ? (
+                          <div className="w-5 h-5 border-2 border-dark/30 border-t-dark rounded-full animate-spin" />
+                        ) : (
+                          <Save size={18} />
+                        )}
+                        <span>{isSaving ? 'Guardando...' : 'Publicar Banner'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
         {isEditingMenu && activeBusinessForMenu && (
           <MenuEditor 
             businessId={activeBusinessForMenu.id} 
@@ -3490,6 +4674,89 @@ export const AdminPanel = () => {
               setActiveBusinessForMenu(null);
             }} 
           />
+        )}
+        {showUsageModal && (
+          <div className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8">
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-primary/20 p-2 rounded-xl">
+                      <Tag className="text-accent" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-dark uppercase tracking-tight">Historial: {selectedCouponForUsage}</h3>
+                      <p className="text-xs text-muted">Usuarios que han canjeado este cupón.</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowUsageModal(false)} className="p-2 hover:bg-surface rounded-xl transition-all">
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                  {loadingUsage ? (
+                    <div className="py-20 text-center">
+                      <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+                      <p className="text-sm text-muted font-medium">Consultando auditoría...</p>
+                    </div>
+                  ) : couponUsage.length === 0 ? (
+                    <div className="py-20 text-center bg-surface/50 rounded-3xl border-2 border-dashed border-surface">
+                      <Search size={40} className="mx-auto text-muted mb-4 opacity-20" />
+                      <p className="text-muted font-medium">No se registran canjes para este cupón.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {couponUsage.map((usage) => (
+                        <div key={usage.id} className="flex items-center justify-between p-4 bg-surface/50 rounded-2xl border border-surface/50">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center font-bold text-muted border border-surface">
+                              {usage.profiles?.name?.charAt(0) || '?'}
+                            </div>
+                            <div>
+                              <p className="font-bold text-dark text-sm">{usage.profiles?.name || 'Usuario desconocido'}</p>
+                              <p className="text-[10px] text-muted font-medium">{usage.profiles?.email}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-black text-accent text-sm">${usage.total.toLocaleString()}</p>
+                            <p className="text-[9px] text-muted font-bold uppercase tracking-widest">{new Date(usage.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-surface">
+                  <button 
+                    onClick={() => {
+                      const data = couponUsage.map(u => ({
+                        Fecha: new Date(u.created_at).toLocaleString(),
+                        Cliente: u.profiles?.name,
+                        Email: u.profiles?.email,
+                        Total_Pedido: u.total,
+                        ID_Pedido: u.id
+                      }));
+                      const ws = XLSX.utils.json_to_sheet(data);
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, "Canjes");
+                      XLSX.writeFile(wb, `canjes_${selectedCouponForUsage}.xlsx`);
+                    }}
+                    disabled={couponUsage.length === 0}
+                    className="w-full bg-dark text-white py-4 rounded-2xl font-bold text-xs uppercase tracking-[0.2em] hover:bg-black transition-all flex items-center justify-center space-x-2 disabled:opacity-30"
+                  >
+                    <Download size={18} />
+                    <span>Exportar Auditoría a Excel</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

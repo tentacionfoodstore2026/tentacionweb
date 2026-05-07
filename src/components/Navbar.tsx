@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 
 export const Navbar = () => {
   const { user, logout } = useAuthStore();
+  const portalSettings = useAuthStore((state) => state.portalSettings);
   const { items, total, removeItem, updateQuantity } = useCartStore();
   const [isCartOpen, setIsCartOpen] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -256,28 +257,34 @@ export const Navbar = () => {
                   </div>
                 ) : (
                   items.map((item) => (
-                    <div key={item.id} className="flex space-x-4">
-                      <img src={item.image} alt={item.name} className="w-20 h-20 rounded-2xl object-cover" />
+                    <div key={item.cartItemId} className="flex space-x-4">
+                      <img
+                        src={item.image || portalSettings?.default_product_image_url || ''}
+                        alt={item.name}
+                        referrerPolicy="no-referrer"
+                        onError={(e) => { e.currentTarget.src = portalSettings?.default_product_image_url || ''; }}
+                        className="w-20 h-20 rounded-2xl object-cover shrink-0"
+                      />
                       <div className="flex-1">
                         <h3 className="font-medium text-dark">{item.name}</h3>
                         <p className="text-sm text-muted line-clamp-1">{item.description}</p>
                         <div className="mt-2 flex items-center justify-between">
                           <div className="flex items-center space-x-3 bg-surface/50 rounded-2xl p-1">
                             <button 
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
                               className="w-6 h-6 flex items-center justify-center hover:bg-primary/10 rounded-xl transition-colors text-dark"
                             >
                               -
                             </button>
                             <span className="font-medium text-sm w-4 text-center text-dark">{item.quantity}</span>
                             <button 
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
                               className="w-6 h-6 flex items-center justify-center hover:bg-primary/10 rounded-xl transition-colors text-dark"
                             >
                               +
                             </button>
                           </div>
-                          <span className="font-medium text-accent">${item.price * item.quantity}</span>
+                          <span className="font-medium text-accent">${Number(item.price) * Number(item.quantity)}</span>
                         </div>
                       </div>
                     </div>

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, ChevronRight, ChevronDown, Save, X, Image as ImageIcon, PlusCircle, MinusCircle, GripVertical, ImagePlus, Pizza } from 'lucide-react';
+import { Plus, Trash2, Edit2, ChevronRight, ChevronDown, Save, X, Image as ImageIcon, PlusCircle, MinusCircle, GripVertical, ImagePlus, Pizza, Settings2, ToggleLeft, FileDown, FileUp, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { ModifierGroupManager, ModifierGroup } from './ModifierGroupManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
-import { Business, Product, ProductCategory, ProductSize, ProductExtraGroup, ProductExtra } from '../store/useStore';
+import { Business, Product, ProductCategory, ProductSize, ProductExtraGroup, ProductExtra, useAuthStore } from '../store/useStore';
 import { ImageUpload } from './ImageUpload';
 import { uploadImageToStorage } from '../lib/uploadImage';
 
@@ -13,10 +15,16 @@ interface MenuEditorProps {
 }
 
 export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName, onClose }) => {
+  const portalSettings = useAuthStore((state) => state.portalSettings);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'menu' | 'modifiers'>('menu');
+
+  // Modifier groups state
+  const [allModifierGroups, setAllModifierGroups] = useState<ModifierGroup[]>([]);
+  const [productModifierIds, setProductModifierIds] = useState<string[]>([]);
   
   // UI States
   const [isEditingCategory, setIsEditingCategory] = useState(false);
@@ -27,7 +35,31 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
 
   useEffect(() => {
     fetchMenuData();
+    fetchAllModifierGroups();
   }, [businessId]);
+
+  const fetchAllModifierGroups = async () => {
+    const { data } = await supabase
+      .from('modifier_groups')
+      .select(`*, modifier_options(*)`)
+      .or(`business_id.eq.${businessId},business_id.is.null`)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (data) {
+      setAllModifierGroups(data.map((g: any) => ({
+        ...g,
+        options: g.modifier_options || [],
+      })));
+    }
+  };
+
+  const fetchProductModifiers = async (productId: string) => {
+    const { data } = await supabase
+      .from('product_modifier_groups')
+      .select('group_id')
+      .eq('product_id', productId);
+    setProductModifierIds(data ? data.map((r: any) => r.group_id) : []);
+  };
 
   const fetchMenuData = async () => {
     setLoading(true);
@@ -138,7 +170,7 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
 
     setIsSaving(true);
     try {
-      let imageUrl = currentProduct.image || '';
+      let imageUrl = currentProduct.image || portalSettings?.default_product_image_url || '';
       if (imageUrl.startsWith('data:image')) {
         imageUrl = await uploadImageToStorage(imageUrl, 'images');
       }
@@ -155,15 +187,38 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
         extras: currentProduct.extras || []
       };
 
-      if (currentProduct.id) {
-        await supabase.from('products').update(prodData).eq('id', currentProduct.id);
+      let productId = currentProduct.id;
+      if (productId) {
+        await supabase.from('products').update(prodData).eq('id', productId);
       } else {
-        await supabase.from('products').insert(prodData);
+        const { data } = await supabase.from('products').insert(prodData).select().single();
+        productId = data?.id;
+      }
+
+      // Save modifier group assignments
+      if (productId) {
+        await supabase.from('product_modifier_groups').delete().eq('product_id', productId);
+        if (productModifierIds.length > 0) {
+          // Sort the selected modifier IDs based on their global order in allModifierGroups
+          const sortedModifierIds = [...productModifierIds].sort((a, b) => {
+            const indexA = allModifierGroups.findIndex((g) => g.id === a);
+            const indexB = allModifierGroups.findIndex((g) => g.id === b);
+            return indexA - indexB;
+          });
+
+          const rows = sortedModifierIds.map((gid, idx) => ({
+            product_id: productId,
+            group_id: gid,
+            sort_order: idx,
+          }));
+          await supabase.from('product_modifier_groups').insert(rows);
+        }
       }
 
       await fetchMenuData();
       setIsEditingProduct(false);
       setCurrentProduct(null);
+      setProductModifierIds([]);
     } catch (error: any) {
       console.error('Error saving product:', error);
       alert(`Error al guardar plato: ${error.message || 'Verifica que la categoría existe'}`);
@@ -236,6 +291,131 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
     setCurrentProduct({ ...currentProduct, extras });
   };
 
+  const handleExportMenu = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+      
+      // Categorias
+      const categoriesData = categories.map(c => ({
+        'ID': c.id,
+        'Nombre': c.name,
+        'ID Padre': c.parentId || '',
+        'Orden': c.orderIndex
+      }));
+      const wsCats = XLSX.utils.json_to_sheet(categoriesData);
+      XLSX.utils.book_append_sheet(wb, wsCats, "Categorias");
+
+      // Productos
+      const productsData = products.map(p => ({
+        'ID': p.id,
+        'ID Categoria': p.categoryId || '',
+        'Nombre': p.name,
+        'Descripcion': p.description || '',
+        'Precio': p.price,
+        'Imagen URL': p.image || '',
+        'Disponible': p.available ? 'SI' : 'NO',
+        'Tamanos (JSON)': JSON.stringify(p.sizes || []),
+        'Extras (JSON)': JSON.stringify(p.extras || [])
+      }));
+      const wsProds = XLSX.utils.json_to_sheet(productsData);
+      XLSX.utils.book_append_sheet(wb, wsProds, "Productos");
+
+      XLSX.writeFile(wb, `Menu_${businessName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (error) {
+      console.error('Error exporting menu:', error);
+      alert('Error al exportar el menú');
+    }
+  };
+
+  const handleImportMenu = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm('¿Estás seguro de importar el menú? Esto podría duplicar elementos si ya existen. Se recomienda revisar los datos después de la importación.')) {
+      e.target.value = '';
+      return;
+    }
+
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+
+        // Import Categories
+        const wsCats = wb.Sheets["Categorias"];
+        const catsJson = XLSX.utils.sheet_to_json(wsCats) as any[];
+        
+        // Map to store new IDs for re-linking
+        const categoryIdMap: Record<string, string> = {};
+
+        for (const row of catsJson) {
+          const catData = {
+            business_id: businessId,
+            name: row['Nombre'],
+            order_index: row['Orden'] || 0,
+            parent_id: null // Will update parents in second pass
+          };
+
+          const { data, error } = await supabase.from('product_categories').insert(catData).select().single();
+          if (error) console.error('Error importing category:', error);
+          if (data) {
+            categoryIdMap[row['ID']] = data.id;
+          }
+        }
+
+        // Second pass for category parents
+        for (const row of catsJson) {
+          if (row['ID Padre'] && categoryIdMap[row['ID Padre']] && categoryIdMap[row['ID']]) {
+            await supabase.from('product_categories')
+              .update({ parent_id: categoryIdMap[row['ID Padre']] })
+              .eq('id', categoryIdMap[row['ID']]);
+          }
+        }
+
+        // Import Products
+        const wsProds = wb.Sheets["Productos"];
+        const prodsJson = XLSX.utils.sheet_to_json(wsProds) as any[];
+
+        for (const row of prodsJson) {
+          const newCategoryId = categoryIdMap[row['ID Categoria']] || row['ID Categoria'];
+          
+          let sizes = [];
+          try { sizes = JSON.parse(row['Tamanos (JSON)'] || '[]'); } catch (e) {}
+          
+          let extras = [];
+          try { extras = JSON.parse(row['Extras (JSON)'] || '[]'); } catch (e) {}
+
+          const prodData = {
+            business_id: businessId,
+            category_id: newCategoryId,
+            name: row['Nombre'],
+            description: row['Descripcion'] || '',
+            price: Number(row['Precio']),
+            image: row['Imagen URL'] || '',
+            available: row['Disponible'] === 'SI',
+            sizes: sizes,
+            extras: extras
+          };
+
+          const { error } = await supabase.from('products').insert(prodData);
+          if (error) console.error('Error importing product:', error);
+        }
+
+        await fetchMenuData();
+        alert('Menú importado correctamente');
+      } catch (error) {
+        console.error('Error processing excel:', error);
+        alert('Error al procesar el archivo Excel. Asegúrate de que el formato sea correcto.');
+      } finally {
+        setLoading(false);
+        e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const rootCategories = categories.filter(c => !c.parentId);
   const subCategories = (parentId: string) => categories.filter(c => c.parentId === parentId);
 
@@ -256,23 +436,74 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
         className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border border-surface/50"
       >
         {/* Header */}
-        <div className="p-8 border-b border-surface flex items-center justify-between bg-surface/50 backdrop-blur-xl shrink-0">
-          <div>
-            <h3 className="text-3xl font-medium text-dark flex items-center gap-3">
-              Gestión de Menú
-              <span className="text-sm font-medium text-muted bg-primary/10 px-3 py-1 rounded-2xl">{businessName}</span>
-            </h3>
-            <p className="text-muted mt-1 font-medium">Configura tus categorías, platos, tamaños y extras.</p>
+        <div className="p-8 border-b border-surface bg-surface/50 backdrop-blur-xl shrink-0">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-3xl font-medium text-dark flex items-center gap-3">
+                Gestión de Menú
+                <span className="text-sm font-medium text-muted bg-primary/10 px-3 py-1 rounded-2xl">{businessName}</span>
+              </h3>
+              <p className="text-muted mt-1 font-medium">Configura tus categorías, platos, tamaños y extras.</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex bg-white/50 backdrop-blur-sm rounded-2xl p-1 border border-white/20 shadow-sm mr-2">
+                <button
+                  type="button"
+                  onClick={handleExportMenu}
+                  className="flex items-center space-x-2 px-4 py-2 hover:bg-white rounded-xl transition-all text-dark font-medium text-xs group"
+                >
+                  <FileSpreadsheet size={16} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+                  <span>Exportar Excel</span>
+                </button>
+                <div className="w-px h-4 bg-dark/10 self-center mx-1" />
+                <label className="flex items-center space-x-2 px-4 py-2 hover:bg-white rounded-xl transition-all text-dark font-medium text-xs cursor-pointer group">
+                  <FileUp size={16} className="text-blue-500 group-hover:scale-110 transition-transform" />
+                  <span>Importar Excel</span>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    className="hidden"
+                    onChange={handleImportMenu}
+                  />
+                </label>
+              </div>
+
+              <button 
+                onClick={onClose}
+                className="p-3 hover:bg-surface rounded-2xl transition-all text-muted hover:text-dark border border-surface"
+              >
+                <X size={24} />
+              </button>
+            </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-3 hover:bg-surface rounded-2xl transition-all text-muted hover:text-dark border border-surface"
-          >
-            <X size={24} />
-          </button>
+          {/* Tab Bar */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('menu')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-semibold uppercase tracking-widest transition-all ${
+                activeTab === 'menu' ? 'bg-dark text-white shadow-md' : 'text-muted hover:text-dark hover:bg-surface'
+              }`}
+            >
+              <Pizza size={14} /> Menú y Productos
+            </button>
+            <button
+              onClick={() => { setActiveTab('modifiers'); fetchAllModifierGroups(); }}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-semibold uppercase tracking-widest transition-all ${
+                activeTab === 'modifiers' ? 'bg-dark text-white shadow-md' : 'text-muted hover:text-dark hover:bg-surface'
+              }`}
+            >
+              <Settings2 size={14} /> Modificadores Globales
+            </button>
+          </div>
         </div>
 
-        <div className="flex-1 flex overflow-hidden">
+        {activeTab === 'modifiers' && (
+          <div className="flex-1 overflow-y-auto p-10">
+            <ModifierGroupManager businessId={businessId} />
+          </div>
+        )}
+
+        <div className={`flex-1 flex overflow-hidden ${activeTab !== 'menu' ? 'hidden' : ''}`}>
           {/* Categories Sidebar */}
           <div className="w-80 border-r border-surface flex flex-col bg-surface/30">
             <div className="p-6 flex items-center justify-between shrink-0">
@@ -406,6 +637,7 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                     extras: [],
                     price: 0
                   });
+                  setProductModifierIds([]);
                   setIsEditingProduct(true);
                 }}
                 disabled={!activeCategoryId}
@@ -421,8 +653,10 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                 {products.filter(p => p.categoryId === activeCategoryId).map(product => (
                   <div key={product.id} className="bg-surface rounded-3xl border border-surface shadow-sm p-4 flex gap-4 group hover:shadow-xl hover:border-primary/30 transition-all">
                     <img 
-                      src={product.image || 'https://picsum.photos/seed/food/200/200'} 
+                      src={product.image || portalSettings?.default_product_image_url || ''} 
                       alt={product.name}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => { e.currentTarget.src = portalSettings?.default_product_image_url || ''; }}
                       className="w-24 h-24 rounded-2xl object-cover shrink-0"
                     />
                     <div className="flex-1">
@@ -451,8 +685,10 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
-                            onClick={() => {
+                            onClick={async () => {
                               setCurrentProduct(product);
+                              await fetchProductModifiers(product.id);
+                              await fetchAllModifierGroups();
                               setIsEditingProduct(true);
                             }}
                             className="p-2 hover:bg-primary/10 text-muted hover:text-accent rounded-xl transition-all"
@@ -738,7 +974,53 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                         </div>
                       </div>
 
-                      {/* Sección Extras */}
+                      {/* Sección Modificadores Globales */}
+                      <div className="bg-white p-8 rounded-2xl shadow-sm border border-accent/20 border-2">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <label className="block text-[10px] font-semibold text-accent uppercase tracking-[0.2em]">Modificadores Globales</label>
+                            <p className="text-[9px] font-medium text-muted/60 mt-1 uppercase italic">Selecciona los grupos que aplican a este plato</p>
+                          </div>
+                          <Settings2 size={18} className="text-accent/40" />
+                        </div>
+                        {allModifierGroups.length === 0 ? (
+                          <p className="text-[10px] text-muted/40 text-center py-4 font-medium uppercase tracking-widest">Ve a la pestaña "Modificadores" para crear grupos</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {allModifierGroups.map(group => {
+                              const isChecked = productModifierIds.includes(group.id);
+                              return (
+                                <label key={group.id} className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border-2 ${
+                                  isChecked ? 'border-accent bg-accent/5' : 'border-surface hover:border-accent/30'
+                                }`}>
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        setProductModifierIds(prev =>
+                                          isChecked ? prev.filter(id => id !== group.id) : [...prev, group.id]
+                                        );
+                                      }}
+                                      className="accent-amber-400 w-4 h-4"
+                                    />
+                                    <div>
+                                      <p className="text-xs font-semibold text-dark">{group.name}</p>
+                                      <p className="text-[9px] text-muted uppercase tracking-wider">
+                                        {group.selection_type === 'single' ? 'Única' : 'Múltiple'} · {group.options.length} opc.
+                                        {group.is_required ? ' · Obligatorio' : ''}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  {isChecked && <ToggleLeft size={16} className="text-accent" />}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Sección Extras (Legado) */}
                       <div className="bg-white p-8 rounded-2xl shadow-sm border border-surface/50">
                         <div className="flex items-center justify-between mb-6">
                           <div>

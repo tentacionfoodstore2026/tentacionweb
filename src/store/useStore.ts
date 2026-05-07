@@ -111,9 +111,12 @@ export interface Order {
   businessId: string;
   items: OrderItem[];
   total: number;
-  status: 'pending' | 'confirmed' | 'delivered' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'ready' | 'assigned' | 'picked_up' | 'delivering' | 'delivered' | 'cancelled';
   createdAt: string;
   pointClaimed?: boolean;
+  coupon_id?: string;
+  discount_amount?: number;
+  original_total?: number;
 }
 
 export interface Driver {
@@ -124,7 +127,7 @@ export interface Driver {
   dni: string;
   address: string;
   avatar: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'blocked';
   rating: number;
   totalDeliveries: number;
   licenseNumber: string;
@@ -144,6 +147,7 @@ export interface Driver {
 }
 
 export interface CartItem extends Product {
+  cartItemId: string;
   quantity: number;
   selectedSize?: ProductSize;
   selectedExtras?: { groupName: string; optionName: string; price: number }[];
@@ -164,11 +168,38 @@ export interface Coupon {
   endTime: string;
 }
 
+export interface PromotionalBanner {
+  id: string;
+  title: string;
+  subtitle: string;
+  image_url: string;
+  duration_ms: number;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface PortalSettings {
+  name: string;
+  support_email: string;
+  support_phone: string;
+  address: string;
+  maintenance_mode: boolean;
+  primary_color: string;
+  logo_url: string;
+  favicon_url: string;
+  default_product_image_url: string;
+  google_maps_key: string;
+}
+
 interface AuthState {
   user: User | null;
   loading: boolean;
+  portalSettings: PortalSettings | null;
   setLoading: (loading: boolean) => void;
   setUser: (user: User | null) => void;
+  setPortalSettings: (settings: PortalSettings) => void;
   logout: () => void;
   claimPromotion: (promoId: string) => void;
   usePromotionCode: (code: string) => void;
@@ -180,8 +211,10 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       loading: true,
+      portalSettings: null,
       setLoading: (loading) => set({ loading }),
       setUser: (user) => set({ user, loading: false }),
+      setPortalSettings: (portalSettings) => set({ portalSettings }),
       logout: () => set({ user: null, loading: false }),
       claimPromotion: async (promoId) => {
         const user = get().user;
@@ -273,9 +306,10 @@ export const useAuthStore = create<AuthState>()(
 
 interface CartState {
   items: CartItem[];
-  addItem: (product: Product, selectedSize?: ProductSize, selectedExtras?: { groupName: string; optionName: string; price: number }[], quantity?: number) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addItem: (product: Product, selectedSize?: ProductSize, selectedExtras?: { groupName: string; optionName: string; price: number }[], quantity?: number) => 'ok' | 'different_business';
+  clearAndAdd: (product: Product, selectedSize?: ProductSize, selectedExtras?: { groupName: string; optionName: string; price: number }[], quantity?: number) => void;
+  removeItem: (cartItemId: string) => void;
+  updateQuantity: (cartItemId: string, quantity: number) => void;
   clearCart: () => void;
   total: () => number;
 }
@@ -286,7 +320,12 @@ export const useCartStore = create<CartState>()(
       items: [],
       addItem: (product, selectedSize, selectedExtras, quantity = 1) => {
         const items = get().items;
-        
+
+        // Block mixing products from different businesses
+        if (items.length > 0 && items[0].businessId !== product.businessId) {
+          return 'different_business';
+        }
+
         // Generate a unique key for the item based on its selections
         const selectionsKey = JSON.stringify({ 
           id: product.id, 
@@ -308,13 +347,13 @@ export const useCartStore = create<CartState>()(
           newItems[existingItemIndex].quantity += quantity;
           set({ items: newItems });
         } else {
-          // Calculate final price based on selected size
-          const basePrice = selectedSize ? selectedSize.price : product.price;
-          const extrasPrice = selectedExtras?.reduce((acc, e) => acc + e.price, 0) || 0;
-          
+          const basePrice = Number(selectedSize ? selectedSize.price : product.price);
+          const extrasPrice = selectedExtras?.reduce((acc, e) => acc + Number(e.price), 0) || 0;
+          const cartItemId = `${product.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           set({ 
             items: [...items, { 
               ...product, 
+              cartItemId,
               price: basePrice + extrasPrice,
               quantity: quantity, 
               selectedSize, 
@@ -322,22 +361,38 @@ export const useCartStore = create<CartState>()(
             }] 
           });
         }
+        return 'ok';
       },
-      removeItem: (productId) =>
-        set({ items: get().items.filter((i) => i.id !== productId) }),
-      updateQuantity: (productId, quantity) => {
+      clearAndAdd: (product, selectedSize, selectedExtras, quantity = 1) => {
+        const basePrice = Number(selectedSize ? selectedSize.price : product.price);
+        const extrasPrice = selectedExtras?.reduce((acc, e) => acc + Number(e.price), 0) || 0;
+        const cartItemId = `${product.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        set({
+          items: [{
+            ...product,
+            cartItemId,
+            price: basePrice + extrasPrice,
+            quantity,
+            selectedSize,
+            selectedExtras
+          }]
+        });
+      },
+      removeItem: (cartItemId) =>
+        set({ items: get().items.filter((i) => i.cartItemId !== cartItemId) }),
+      updateQuantity: (cartItemId, quantity) => {
         if (quantity <= 0) {
-          get().removeItem(productId);
+          get().removeItem(cartItemId);
           return;
         }
         set({
           items: get().items.map((i) =>
-            i.id === productId ? { ...i, quantity } : i
+            i.cartItemId === cartItemId ? { ...i, quantity } : i
           ),
         });
       },
       clearCart: () => set({ items: [] }),
-      total: () => get().items.reduce((acc, item) => acc + item.price * item.quantity, 0),
+      total: () => get().items.reduce((acc, item) => acc + (Number(item.price) * Number(item.quantity)), 0),
     }),
     { name: 'cart-storage' }
   )

@@ -37,6 +37,24 @@ const AuthHandler = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Fetch Portal Settings
+    const fetchSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('portal_settings')
+          .select('*')
+          .eq('id', '00000000-0000-0000-0000-000000000000')
+          .single();
+        
+        if (!error && data) {
+          useAuthStore.getState().setPortalSettings(data);
+        }
+      } catch (err) {
+        console.error('[App] Error fetching portal settings:', err);
+      }
+    };
+    fetchSettings();
+
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {

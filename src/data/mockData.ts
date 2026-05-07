@@ -74,6 +74,8 @@ export const MOCK_PRODUCTS: Product[] = [
     image: 'https://images.unsplash.com/photo-1574071318508-1cdbad80ad38?auto=format&fit=crop&w=800&q=80',
     category: 'Clásicas',
     available: true,
+    sizes: [],
+    extras: [],
   },
   {
     id: 'p2',
@@ -84,6 +86,8 @@ export const MOCK_PRODUCTS: Product[] = [
     image: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=800&q=80',
     category: 'Clásicas',
     available: true,
+    sizes: [],
+    extras: [],
   },
   {
     id: 'p3',
@@ -94,6 +98,8 @@ export const MOCK_PRODUCTS: Product[] = [
     image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80',
     category: 'Hamburguesas',
     available: true,
+    sizes: [],
+    extras: [],
   },
   {
     id: 'p4',
@@ -104,7 +110,10 @@ export const MOCK_PRODUCTS: Product[] = [
     image: 'https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=800&q=80',
     category: 'Hamburguesas',
     available: true,
+    sizes: [],
+    extras: [],
   },
+
 ];
 
 export const MOCK_ORDERS: Order[] = [

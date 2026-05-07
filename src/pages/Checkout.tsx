@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCartStore, useAuthStore, useCouponStore, Coupon, useOrderStore } from '../store/useStore';
 import { Send, MapPin, Phone, User as UserIcon, ArrowLeft, Mail, Info, CreditCard, CheckCircle2, Loader2, ShoppingBag, Tag, X as XIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { isBusinessCurrentlyOpen } from '../lib/businessHours';
 
 import { supabase } from '../lib/supabase';
 
@@ -31,6 +32,7 @@ export const Checkout = () => {
   const [business, setBusiness] = useState<any>(null);
 
   const businessId = items[0]?.businessId;
+  const isStoreOpen = business ? isBusinessCurrentlyOpen(business.opening_hours, business.is_open) : true;
 
   useEffect(() => {
     if (businessId) {
@@ -126,7 +128,8 @@ export const Checkout = () => {
     return appliedCoupon.value;
   };
 
-  const finalTotal = total() - calculateDiscount();
+  const deliveryFee = business?.delivery_fee || 0;
+  const finalTotal = total() + deliveryFee - calculateDiscount();
 
   if (items.length === 0 && step !== 'success') {
     return (
@@ -234,7 +237,8 @@ export const Checkout = () => {
 
     const itemsText = items.map(i => `- ${i.name} x ${i.quantity} ($${i.price * i.quantity})`).join('\n');
     const discountText = appliedPromotion ? `\nDescuento (${appliedPromotion.code}): -$${calculateDiscount()}` : appliedCoupon ? `\nDescuento (${appliedCoupon.code}): -$${calculateDiscount()}` : '';
-    const message = `Hola ${business.name}, quiero hacer un pedido:\n\nOrden: #${orderId}\n\n${itemsText}${discountText}\n\nTotal: $${finalTotal}\n\nDatos de entrega:\nNombre: ${formData.name}\nEmail: ${formData.email}\nDirección: ${formData.address}\nReferencia: ${formData.reference}\nTeléfono: ${formData.phone}\nMétodo de Pago: ${formData.paymentMethod === 'cash' ? 'Efectivo' : 'Debito / Credito'}\nNotas: ${formData.notes || 'Sin notas'}`;
+    const deliveryText = deliveryFee > 0 ? `\nEnvío: $${deliveryFee}` : '\nEnvío: Gratis';
+    const message = `Hola ${business.name}, quiero hacer un pedido:\n\nOrden: #${orderId}\n\n${itemsText}${discountText}${deliveryText}\n\nTotal: $${finalTotal}\n\nDatos de entrega:\nNombre: ${formData.name}\nEmail: ${formData.email}\nDirección: ${formData.address}\nReferencia: ${formData.reference}\nTeléfono: ${formData.phone}\nMétodo de Pago: ${formData.paymentMethod === 'cash' ? 'Efectivo' : 'Debito / Credito'}\nNotas: ${formData.notes || 'Sin notas'}`;
     
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${business.whatsapp}?text=${encodedMessage}`, '_blank');
@@ -448,12 +452,12 @@ export const Checkout = () => {
               
               <div className="space-y-4 mb-8 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                 {items.map(item => (
-                  <div key={item.id} className="flex justify-between items-start text-muted">
+                  <div key={item.cartItemId} className="flex justify-between items-start text-muted">
                     <div className="flex-1">
                       <p className="font-medium text-dark">{item.name}</p>
                       <p className="text-xs text-muted">Cantidad: {item.quantity}</p>
                     </div>
-                    <span className="font-medium text-dark ml-4">${item.price * item.quantity}</span>
+                    <span className="font-medium text-dark ml-4">${Number(item.price) * Number(item.quantity)}</span>
                   </div>
                 ))}
               </div>
@@ -486,7 +490,9 @@ export const Checkout = () => {
 
                 <div className="flex justify-between items-center text-muted">
                   <span>Envío</span>
-                  <span className="text-primary font-medium">Gratis</span>
+                  <span className="text-primary font-medium">
+                    {deliveryFee > 0 ? `$${deliveryFee}` : 'Gratis'}
+                  </span>
                 </div>
 
                 {/* Coupon Input */}
@@ -539,10 +545,10 @@ export const Checkout = () => {
               
               <button 
                 onClick={handleConfirmOrder}
-                disabled={!formData.name || !formData.address || !formData.phone || !formData.email}
-                className="w-full bg-primary text-dark py-4 rounded-2xl font-medium text-lg hover:bg-accent transition-all flex items-center justify-center space-x-3 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 shadow-lg shadow-primary/20 mt-8"
+                disabled={!formData.name || !formData.address || !formData.phone || !formData.email || !isStoreOpen}
+                className={`w-full ${isStoreOpen ? 'bg-primary hover:bg-accent' : 'bg-muted'} text-dark py-4 rounded-2xl font-medium text-lg transition-all flex items-center justify-center space-x-3 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 shadow-lg shadow-primary/20 mt-8`}
               >
-                <span>Confirmar Pedido</span>
+                <span>{isStoreOpen ? 'Confirmar Pedido' : 'Comercio Cerrado'}</span>
               </button>
               
               <div className="mt-6 p-4 bg-primary/5 rounded-2xl border border-surface">

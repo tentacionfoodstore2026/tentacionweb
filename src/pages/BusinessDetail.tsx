@@ -5,6 +5,7 @@ import { ProductCard } from '../components/ProductCard';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import { Business, Product, ProductCategory } from '../store/useStore';
+import { isBusinessCurrentlyOpen } from '../lib/businessHours';
 
 export const BusinessDetail = () => {
   const [id] = useState(useParams().id);
@@ -38,10 +39,11 @@ export const BusinessDetail = () => {
             whatsapp: bizData.whatsapp,
             address: bizData.address,
             rating: bizData.rating,
-            isOpen: bizData.is_open,
+            isOpen: isBusinessCurrentlyOpen(bizData.opening_hours, bizData.is_open),
             deliveryFee: bizData.delivery_fee,
             deliveryTime: bizData.delivery_time,
-            status: bizData.status
+            status: bizData.status,
+            openingHours: bizData.opening_hours || []
           } as Business);
         }
 
@@ -118,7 +120,7 @@ export const BusinessDetail = () => {
           <div className={`px-4 py-2 rounded-2xl text-sm font-medium uppercase tracking-widest shadow-lg backdrop-blur-md border ${
             business.isOpen 
               ? 'bg-primary/90 text-dark border-primary' 
-              : 'bg-muted/90 text-white border-muted'
+              : 'bg-red-600 text-white border-red-700'
           }`}>
             {business.isOpen ? 'Abierto' : 'Cerrado'}
           </div>
@@ -153,7 +155,7 @@ export const BusinessDetail = () => {
                   <div className={`px-2 py-1 rounded-2xl text-[10px] font-medium uppercase tracking-wider ${
                     business.isOpen 
                       ? 'bg-primary/20 text-accent' 
-                      : 'bg-surface text-muted'
+                      : 'bg-red-600 text-white'
                   }`}>
                     {business.isOpen ? 'Abierto' : 'Cerrado'}
                   </div>
@@ -220,7 +222,7 @@ export const BusinessDetail = () => {
 
                       {/* Products in Root Category */}
                       {rootProducts.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                           {rootProducts.map((product) => (
                             <ProductCard key={product.id} product={product} />
                           ))}
@@ -237,7 +239,7 @@ export const BusinessDetail = () => {
                               <span className="w-1.5 h-6 bg-accent/30 rounded-full" />
                               {sub.name}
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               {subProducts.map((product) => (
                                 <ProductCard key={product.id} product={product} />
                               ))}
@@ -341,12 +343,27 @@ export const BusinessDetail = () => {
               </div>
             </div>
 
-            {/* Map Placeholder */}
+            {/* Interactive Map */}
             <div className="bg-surface rounded-2xl p-6 shadow-sm border border-surface">
               <h3 className="text-lg font-medium text-dark mb-4">Ubicación</h3>
-              <div className="aspect-square bg-surface rounded-2xl flex flex-col items-center justify-center text-muted space-y-2 border-2 border-dashed border-surface">
-                <MapIcon size={40} />
-                <p className="text-xs font-medium uppercase tracking-widest">Mapa Interactivo</p>
+              <div className="aspect-square bg-surface rounded-2xl overflow-hidden border border-surface relative">
+                {business.address ? (
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    scrolling="no"
+                    marginHeight={0}
+                    marginWidth={0}
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(business.address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                    className="absolute inset-0"
+                  ></iframe>
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-muted space-y-2 border-2 border-dashed border-surface">
+                    <MapIcon size={40} />
+                    <p className="text-xs font-medium uppercase tracking-widest">Dirección no disponible</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

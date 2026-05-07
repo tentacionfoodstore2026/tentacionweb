@@ -3,7 +3,8 @@ import { Search, Filter, ChevronRight, Zap, Award, Clock } from 'lucide-react';
 import { BusinessCard } from '../components/BusinessCard';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
-import { Business } from '../store/useStore';
+import { Business, PromotionalBanner } from '../store/useStore';
+import { isBusinessCurrentlyOpen } from '../lib/businessHours';
 
 import { Footer } from '../components/Footer';
 
@@ -16,6 +17,42 @@ export const Home = () => {
   const [categories, setCategories] = useState<string[]>(['Todos']);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [banners, setBanners] = useState<PromotionalBanner[]>([]);
+  const [bannersLoading, setBannersLoading] = useState(true);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+
+  useEffect(() => {
+    const fetchBanners = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('promotional_banners')
+          .select('*')
+          .order('sort_order', { ascending: true });
+        
+        if (!error && data) {
+          setBanners(data);
+        }
+      } catch (err) {
+        console.error('Error fetching banners:', err);
+      } finally {
+        setBannersLoading(false);
+      }
+    };
+    fetchBanners();
+  }, []);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+
+    const currentBanner = banners[currentBannerIndex];
+    const duration = currentBanner.duration_ms || 5000;
+
+    const timer = setTimeout(() => {
+      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
+    }, duration);
+
+    return () => clearTimeout(timer);
+  }, [banners, currentBannerIndex]);
 
   useEffect(() => {
     const fetchBusinesses = async () => {
@@ -48,7 +85,7 @@ export const Home = () => {
           whatsapp: b.whatsapp,
           address: b.address,
           rating: b.rating || 5.0,
-          isOpen: b.is_open ?? true,
+          isOpen: isBusinessCurrentlyOpen(b.opening_hours, b.is_open),
           deliveryFee: b.delivery_fee || 0,
           deliveryTime: b.delivery_time || '30-45 min',
           status: b.status || 'active'
@@ -83,35 +120,69 @@ export const Home = () => {
     <div className="min-h-screen bg-surface pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         {/* Hero Section */}
-        <section className="relative rounded-2xl overflow-hidden bg-accent p-8 sm:p-12 mb-12">
-          <div className="relative z-10 max-w-2xl">
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-4xl sm:text-5xl font-medium text-white mb-6 leading-tight"
-            >
-              Lo mejor de Arica <br />
-              <span className="text-primary">te lo llevamos a tu mesa</span>
-            </motion.h1>
-            <div className="relative max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
-              <input 
-                type="text"
-                placeholder="¿Qué se te antoja hoy?"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-surface rounded-2xl py-4 pl-12 pr-4 text-dark placeholder-muted focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-xl border border-surface"
-              />
+        {bannersLoading ? (
+          <div className="w-full h-[300px] bg-accent/10 animate-pulse rounded-2xl mb-12 flex items-center justify-center">
+            <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+          </div>
+        ) : banners.length > 0 ? (
+          <section className="relative rounded-2xl overflow-hidden bg-accent p-8 sm:p-12 mb-12 min-h-[300px]">
+             {/* Render active banner background */}
+             <div className="absolute inset-0 z-0">
+               <img 
+                 key={`img-${currentBannerIndex}`}
+                 src={banners[currentBannerIndex].image_url} 
+                 alt={banners[currentBannerIndex].title}
+                 className="w-full h-full object-cover opacity-60"
+               />
+               <div className="absolute inset-0 bg-gradient-to-r from-accent/90 via-accent/50 to-transparent"></div>
+             </div>
+             
+             <div className="relative z-10 max-w-2xl h-full flex flex-col justify-center">
+                <motion.h1 
+                  key={`title-${currentBannerIndex}`}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="text-4xl sm:text-5xl font-medium text-white mb-6 leading-tight drop-shadow-md"
+                >
+                  {banners[currentBannerIndex].title} <br />
+                  <span className="text-primary">{banners[currentBannerIndex].subtitle}</span>
+                </motion.h1>
+                <div className="relative max-w-md">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
+                  <input 
+                    type="text"
+                    placeholder="¿Qué se te antoja hoy?"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-surface rounded-2xl py-4 pl-12 pr-4 text-dark placeholder-muted focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-xl border border-surface"
+                  />
+                </div>
+             </div>
+          </section>
+        ) : (
+          <section className="relative rounded-2xl overflow-hidden bg-accent p-8 sm:p-12 mb-12">
+            <div className="relative z-10 max-w-2xl">
+              <motion.h1 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-4xl sm:text-5xl font-medium text-white mb-6 leading-tight"
+              >
+                Lo mejor de Arica <br />
+                <span className="text-primary">te lo llevamos a tu mesa</span>
+              </motion.h1>
+              <div className="relative max-w-md">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
+                <input 
+                  type="text"
+                  placeholder="¿Qué se te antoja hoy?"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-surface rounded-2xl py-4 pl-12 pr-4 text-dark placeholder-muted focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-xl border border-surface"
+                />
+              </div>
             </div>
-          </div>
-          <div className="absolute right-0 bottom-0 top-0 w-1/2 hidden lg:block">
-            <img 
-              src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80" 
-              alt="Food" 
-              className="w-full h-full object-cover opacity-40 mix-blend-overlay"
-            />
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Categories */}
         <section className="mb-12 overflow-x-auto no-scrollbar">
