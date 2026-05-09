@@ -51,7 +51,7 @@ export const Navbar = () => {
             </div>
 
             <div className="flex items-center space-x-4">
-              {(user?.role === 'admin' || user?.role === 'super_admin') && (
+              {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'cocina') && (
                 <Link to="/admin" className="p-2 text-muted hover:text-accent transition-colors">
                   <Store size={24} />
                 </Link>
@@ -156,14 +156,14 @@ export const Navbar = () => {
                   <span>Promociones</span>
                 </Link>
                 
-                {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'cocina') && (
                   <Link 
                     to="/admin" 
                     onClick={() => setIsMenuOpen(false)}
                     className="flex items-center space-x-3 p-3 rounded-2xl hover:bg-primary/10 text-dark font-medium transition-colors"
                   >
                     <Store size={24} className="text-primary" />
-                    <span>Panel Admin</span>
+                    <span>{user?.role === 'cocina' ? 'Panel Cocina' : 'Panel Admin'}</span>
                   </Link>
                 )}
                 

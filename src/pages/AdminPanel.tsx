@@ -1062,7 +1062,9 @@ const DashboardContent: React.FC<{
 };
 
 export const AdminPanel = () => {
-  const [activeTab, setActiveTab] = React.useState('dashboard');
+  const { user: currentUser } = useAuthStore();
+  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
+  const [activeTab, setActiveTab] = React.useState(currentUser?.role === 'cocina' ? 'kitchen' : 'dashboard');
   const [settingsTab, setSettingsTab] = React.useState('portal');
   const [showSupabaseKey, setShowSupabaseKey] = React.useState(false);
   const [showMapsKey, setShowMapsKey] = React.useState(false);
@@ -1088,8 +1090,6 @@ export const AdminPanel = () => {
   const [isSaving, setIsSaving] = React.useState(false);
   const [isEditingMenu, setIsEditingMenu] = React.useState(false);
   const [activeBusinessForMenu, setActiveBusinessForMenu] = React.useState<Business | null>(null);
-  const { user: currentUser } = useAuthStore();
-  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
   const { drivers, addDriver, updateDriver, deleteDriver, toggleDriverStatus } = useDriverStore();
   const [isEditingDriver, setIsEditingDriver] = useState(false);
   const [currentDriver, setCurrentDriver] = useState<Partial<Driver> | null>(null);
@@ -2055,7 +2055,9 @@ export const AdminPanel = () => {
               { id: 'banners', label: 'Banners', icon: ImageIcon },
               { id: 'notifications', label: 'Notificaciones', icon: Bell },
               { id: 'administration', label: 'Administración', icon: ShieldCheck },
-            ].map((item) => (
+            ]
+            .filter((item) => currentUser?.role === 'cocina' ? item.id === 'kitchen' : true)
+            .map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}

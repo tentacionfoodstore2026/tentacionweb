@@ -14,7 +14,7 @@ import { useAuthStore } from './store/useStore';
 import { Chatbot } from './components/Chatbot';
 import { supabase } from './lib/supabase';
 
-const PrivateRoute = ({ children, role }: { children: React.ReactNode; role?: string }) => {
+const PrivateRoute = ({ children, role }: { children: React.ReactNode; role?: string | string[] }) => {
   const { user, loading } = useAuthStore();
   
   if (loading) {
@@ -27,7 +27,13 @@ const PrivateRoute = ({ children, role }: { children: React.ReactNode; role?: st
 
   if (!user) return <Navigate to="/login" />;
   if (user.role === 'super_admin') return <>{children}</>;
-  if (role && user.role !== role) return <Navigate to="/" />;
+  if (role) {
+    if (Array.isArray(role)) {
+      if (!role.includes(user.role)) return <Navigate to="/" />;
+    } else {
+      if (user.role !== role) return <Navigate to="/" />;
+    }
+  }
   return <>{children}</>;
 };
 
@@ -74,7 +80,7 @@ const AuthHandler = () => {
           supabase.from('profiles').select('role').eq('id', session.user.id).single().then(({ data }) => {
             const isSuperAdmin = session.user.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
             if (data?.role === 'comercio') navigate('/merchant');
-            else if (data?.role === 'admin' || data?.role === 'super_admin' || isSuperAdmin) navigate('/admin');
+            else if (data?.role === 'admin' || data?.role === 'super_admin' || data?.role === 'cocina' || isSuperAdmin) navigate('/admin');
             else if (data?.role === 'repartidor') navigate('/delivery');
             else navigate('/');
           });
@@ -223,7 +229,7 @@ export default function App() {
           } />
 
           <Route path="/admin" element={
-            <PrivateRoute role="admin">
+            <PrivateRoute role={['admin', 'cocina']}>
               <AdminPanel />
             </PrivateRoute>
           } />

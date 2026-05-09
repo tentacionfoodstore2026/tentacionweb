@@ -110,7 +110,8 @@ export const Profile = () => {
                 {(user.role === 'super_admin' || user.email.toLowerCase() === 'joseluisquiroga76@gmail.com') ? 'Super Admin' : 
                  user.role === 'user' ? 'Cliente' : 
                  user.role === 'comercio' ? 'Comercio' : 
-                 user.role === 'admin' ? 'Admin' : 'Repartidor'}
+                 user.role === 'admin' ? 'Admin' : 
+                 user.role === 'cocina' ? 'Cocina' : 'Repartidor'}
               </span>
               <span className="text-muted/60 text-xs font-medium uppercase tracking-wider">Miembro desde Mar 2024</span>
               <button 
