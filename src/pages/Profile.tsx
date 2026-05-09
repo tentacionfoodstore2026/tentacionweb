@@ -59,29 +59,28 @@ export const Profile = () => {
   // Realtime: update active orders automatically
   useEffect(() => {
     if (!user) return;
+    
+    const fetchOrders = async () => {
+      const { data } = await supabase
+        .from('orders')
+        .select('*, order_items(*, products(*)), businesses(name), driver:profiles!orders_driver_id_fkey(name, phone)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (data) setOrders(data);
+    };
+
     const channel = supabase
       .channel('profile-orders-realtime')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` },
+        { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` },
         () => {
-          // Re-fetch everything to ensure joined data is retrieved properly
-          supabase
-            .from('orders')
-            .select('*, order_items(*, products(*)), businesses(name), driver:profiles!orders_driver_id_fkey(name, phone)')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .then(({ data }) => { if (data) setOrders(data); });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          setOrders(prev => prev.map(o => o.id === payload.new.id ? { ...o, ...payload.new } : o));
+          // On any change (INSERT, UPDATE, DELETE), re-fetch to get full joined data
+          fetchOrders();
         }
       )
       .subscribe();
+      
     return () => { channel.unsubscribe(); };
   }, [user]);
 
@@ -226,8 +225,22 @@ export const Profile = () => {
                     { key: 'picked_up', label: 'En Camino',    icon: '🚀' },
                     { key: 'delivered', label: 'Entregado',    icon: '🎉' },
                   ];
-                  const statusOrder = ['pending','confirmed','ready','assigned','picked_up','delivered'];
-                  const currentIdx = statusOrder.indexOf(order.status);
+
+                  // Map statuses to step indices
+                  const getStatusIndex = (status: string) => {
+                    switch (status) {
+                      case 'pending': return 0;
+                      case 'confirmed': return 1;
+                      case 'ready': return 2;
+                      case 'assigned': return 3;
+                      case 'picked_up':
+                      case 'delivering': return 4;
+                      case 'delivered': return 5;
+                      default: return -1;
+                    }
+                  };
+
+                  const currentIdx = getStatusIndex(order.status);
                   const isCancelled = order.status === 'cancelled';
                   const isActive = !isCancelled && order.status !== 'delivered';
 
