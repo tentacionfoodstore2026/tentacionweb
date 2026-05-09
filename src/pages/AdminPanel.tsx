@@ -63,7 +63,7 @@ const BannerManagementSection: React.FC<{
               layout
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-[2.5rem] border border-primary/5 overflow-hidden shadow-xl shadow-dark/5 hover:shadow-2xl hover:shadow-primary/10 transition-all group"
+              className="bg-white rounded-2xl border border-primary/5 overflow-hidden shadow-xl shadow-dark/5 hover:shadow-2xl hover:shadow-primary/10 transition-all group"
             >
               <div className="relative h-56 overflow-hidden">
                 <img 
@@ -82,8 +82,8 @@ const BannerManagementSection: React.FC<{
                 </div>
 
                 <div className="absolute bottom-6 left-6 right-6">
-                  <p className="text-primary font-black text-[10px] uppercase tracking-[0.3em] mb-1">{banner.subtitle}</p>
-                  <h3 className="text-white text-xl font-bold leading-tight">{banner.title}</h3>
+                  <h3 className="text-white text-xl font-bold leading-tight mb-1">{banner.title}</h3>
+                  <p className="text-primary font-black text-[10px] uppercase tracking-[0.3em]">{banner.subtitle}</p>
                 </div>
 
                 <div className="absolute top-4 right-4 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
