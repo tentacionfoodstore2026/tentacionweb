@@ -53,24 +53,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const fallbackImage = portalSettings?.default_product_image_url || '';
 
   const handleAdd = () => {
-    const hasOptions = (product.sizes && product.sizes.length > 0) || (product.extras && product.extras.length > 0);
-    if (hasOptions) {
-      setIsModalOpen(true);
-    } else {
-      const result = addItem(product);
-      if (result === 'different_business') {
-        setShowStoreChange(true);
-      }
-    }
+    // Always open the modal — it fetches global modifier groups from Supabase
+    // and handles the simple add-to-cart case internally if there are no options.
+    setIsModalOpen(true);
   };
 
   return (
     <motion.div
       layout
-      className="bg-surface rounded-2xl border border-surface hover:shadow-lg transition-all flex items-stretch min-h-[140px]"
+      className="bg-surface rounded-2xl border border-surface hover:shadow-lg transition-all flex items-stretch min-h-[110px] overflow-hidden"
     >
       {/* Imagen izquierda — ocupa toda la altura */}
-      <div className="w-36 shrink-0 rounded-l-2xl overflow-hidden">
+      <div className="w-28 sm:w-32 shrink-0 overflow-hidden">
         <img
           src={product.image || fallbackImage}
           alt={product.name}
@@ -81,12 +75,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </div>
 
       {/* Texto centrado verticalmente */}
-      <div className="flex-1 flex flex-col justify-center p-4 gap-2">
+      <div className="flex-1 flex flex-col justify-center p-3 gap-1">
         <h4 className="font-semibold text-dark leading-snug">{product.name}</h4>
         <p className="text-sm text-muted line-clamp-2">{product.description}</p>
         {/* Precio a la derecha + botón */}
-        <div className="flex items-center justify-end gap-3 mt-auto pt-2">
-          <span className="text-lg font-bold text-accent">${product.price}</span>
+        <div className="flex items-center justify-end gap-2 mt-auto">
+          <span className="text-base font-bold text-accent">${product.price}</span>
           <button
             onClick={handleAdd}
             className="bg-primary/10 text-accent p-2 rounded-2xl hover:bg-primary hover:text-dark transition-all active:scale-90"

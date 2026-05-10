@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Home } from './pages/Home';
 import { BusinessDetail } from './pages/BusinessDetail';
@@ -10,6 +10,7 @@ import { MerchantPanel } from './pages/MerchantPanel';
 import { AdminPanel } from './pages/AdminPanel';
 import { DeliveryPanel } from './pages/DeliveryPanel';
 import { Promotions } from './pages/Promotions';
+import { MaintenanceMode } from './pages/MaintenanceMode';
 import { useAuthStore } from './store/useStore';
 import { Chatbot } from './components/Chatbot';
 import { supabase } from './lib/supabase';
@@ -37,10 +38,49 @@ const PrivateRoute = ({ children, role }: { children: React.ReactNode; role?: st
   return <>{children}</>;
 };
 
+const GoogleMapsLoader = () => {
+  const { portalSettings } = useAuthStore();
+  
+  useEffect(() => {
+    if (portalSettings?.google_maps_key && !(window as any).google) {
+      console.log('[Maps] Loading Google Maps API...');
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${portalSettings.google_maps_key}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }, [portalSettings?.google_maps_key]);
+
+  return null;
+};
+
+const MaintenanceGuard = ({ children }: { children: React.ReactNode }) => {
+  const { portalSettings, user } = useAuthStore();
+  const location = useLocation();
+  
+  // Allow admins and specifically the login page to always be accessible
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isLoginPage = location.pathname === '/login';
+
+  if (portalSettings?.maintenance_mode && !isAdmin && !isLoginPage) {
+    return <MaintenanceMode />;
+  }
+
+  return <>{children}</>;
+};
+
 // Component to handle auth state changes and routing
 const AuthHandler = () => {
   const { setUser, setLoading } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationRef = React.useRef(location);
+
+  // Keep locationRef updated with the current location
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
 
   useEffect(() => {
     // Fetch Portal Settings
@@ -75,8 +115,10 @@ const AuthHandler = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         fetchProfile(session.user.id, session.user.email || '', session.user.user_metadata);
-        // Redirect based on role if they just logged in
-        if (_event === 'SIGNED_IN') {
+        
+        // Redirect based on role ONLY if they just logged in and ARE currently on the login page
+        // Using locationRef ensures we have the current path at the time of the event
+        if (_event === 'SIGNED_IN' && locationRef.current.pathname === '/login') {
           supabase.from('profiles').select('role').eq('id', session.user.id).single().then(({ data }) => {
             const isSuperAdmin = session.user.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
             if (data?.role === 'comercio') navigate('/merchant');
@@ -93,8 +135,13 @@ const AuthHandler = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+
   const fetchProfile = async (userId: string, email: string, userMetadata?: any) => {
-    setLoading(true);
+    // Only set global loading if we don't have a user yet
+    // This prevents component remounting during background token refreshes
+    if (!useAuthStore.getState().user) {
+      setLoading(true);
+    }
     const isSuperAdminEmail = email.toLowerCase() === 'joseluisquiroga76@gmail.com';
     try {
       console.log('[Auth] Fetching profile for:', email);
@@ -202,51 +249,54 @@ export default function App() {
   return (
     <Router>
       <AuthHandler />
-      <div className="min-h-screen bg-surface font-sans selection:bg-primary/30 selection:text-dark">
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/business/:id" element={<BusinessDetail />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/promotions" element={<Promotions />} />
-          
-          <Route path="/checkout" element={
-            <PrivateRoute>
-              <Checkout />
-            </PrivateRoute>
-          } />
-          
-          <Route path="/profile" element={
-            <PrivateRoute>
-              <Profile />
-            </PrivateRoute>
-          } />
+      <GoogleMapsLoader />
+      <MaintenanceGuard>
+        <div className="min-h-screen bg-surface font-sans selection:bg-primary/30 selection:text-dark">
+          <Navbar />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/business/:id" element={<BusinessDetail />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/promotions" element={<Promotions />} />
+            
+            <Route path="/checkout" element={
+              <PrivateRoute>
+                <Checkout />
+              </PrivateRoute>
+            } />
+            
+            <Route path="/profile" element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            } />
 
-          <Route path="/merchant" element={
-            <PrivateRoute role="comercio">
-              <MerchantPanel />
-            </PrivateRoute>
-          } />
+            <Route path="/merchant" element={
+              <PrivateRoute role="comercio">
+                <MerchantPanel />
+              </PrivateRoute>
+            } />
 
-          <Route path="/admin" element={
-            <PrivateRoute role={['admin', 'cocina']}>
-              <AdminPanel />
-            </PrivateRoute>
-          } />
-          <Route path="/super-admin" element={
-            <PrivateRoute role="super_admin">
-              <AdminPanel />
-            </PrivateRoute>
-          } />
+            <Route path="/admin" element={
+              <PrivateRoute role={['admin', 'cocina']}>
+                <AdminPanel />
+              </PrivateRoute>
+            } />
+            <Route path="/super-admin" element={
+              <PrivateRoute role="super_admin">
+                <AdminPanel />
+              </PrivateRoute>
+            } />
 
-          <Route path="/delivery" element={
-            <PrivateRoute role="repartidor">
-              <DeliveryPanel />
-            </PrivateRoute>
-          } />
-        </Routes>
-        <Chatbot />
-      </div>
+            <Route path="/delivery" element={
+              <PrivateRoute role="repartidor">
+                <DeliveryPanel />
+              </PrivateRoute>
+            } />
+          </Routes>
+          <Chatbot />
+        </div>
+      </MaintenanceGuard>
     </Router>
   );
 }

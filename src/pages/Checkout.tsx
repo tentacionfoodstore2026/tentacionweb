@@ -188,18 +188,31 @@ export const Checkout = () => {
         throw new Error(orderError.message);
       }
 
-      // 2. Insert Order Items (Intentar pero capturar error por separado)
-      try {
-        const orderItems = items.map(item => ({
+      // 2. Insert Order Items with full modifier details
+      const orderItems = items.map(item => {
+        // Always send an explicit value (not undefined) so Supabase includes
+        // the column in the INSERT SQL and does not fall back to DB default.
+        const modifiers = item.selected_modifiers != null && typeof item.selected_modifiers === 'object'
+          ? item.selected_modifiers
+          : {};
+        const extras = Array.isArray(item.selectedExtras) ? item.selectedExtras : [];
+
+        return {
           order_id: orderData.id,
           product_id: item.id,
           quantity: item.quantity,
-          price: item.price
-        }));
+          price: item.price,
+          selected_modifiers: modifiers,
+          selected_size: item.selectedSize ? item.selectedSize.name : null,
+          selected_extras: extras,
+          notes: item.notes || null
+        };
+      });
 
-        await supabase.from('order_items').insert(orderItems);
-      } catch (err) {
-        console.warn('Items could not be saved, but order was created:', err);
+      console.log('[Checkout] Inserting order items:', JSON.stringify(orderItems));
+      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+      if (itemsError) {
+        console.error('[Checkout] Error saving order items:', itemsError.message, itemsError.details, itemsError.hint);
       }
 
       // 3. Save order locally
@@ -235,7 +248,33 @@ export const Checkout = () => {
   const handleWhatsAppRedirect = () => {
     if (!business) return;
 
-    const itemsText = items.map(i => `- ${i.name} x ${i.quantity} ($${i.price * i.quantity})`).join('\n');
+    const itemsText = items.map(i => {
+      let text = `- ${i.name} x ${i.quantity} ($${i.price * i.quantity})`;
+      
+      // Modifiers
+      if (i.selected_modifiers && Object.keys(i.selected_modifiers).length > 0) {
+        Object.entries(i.selected_modifiers).forEach(([group, options]) => {
+          const optsText = Array.isArray(options) 
+            ? options.map((o: any) => typeof o === 'string' ? o : o.name).join(', ')
+            : String(options);
+          text += `\n  * ${group}: ${optsText}`;
+        });
+      }
+      
+      // Extras
+      if (i.selectedExtras && i.selectedExtras.length > 0) {
+        const extrasText = i.selectedExtras.map((e: any) => e.optionName || e.name || String(e)).join(', ');
+        text += `\n  * Extras: ${extrasText}`;
+      }
+
+      // Notes
+      if (i.notes) {
+        text += `\n  * Nota: ${i.notes}`;
+      }
+
+      return text;
+    }).join('\n');
+
     const discountText = appliedPromotion ? `\nDescuento (${appliedPromotion.code}): -$${calculateDiscount()}` : appliedCoupon ? `\nDescuento (${appliedCoupon.code}): -$${calculateDiscount()}` : '';
     const deliveryText = deliveryFee > 0 ? `\nEnvío: $${deliveryFee}` : '\nEnvío: Gratis';
     const message = `Hola ${business.name}, quiero hacer un pedido:\n\nOrden: #${orderId}\n\n${itemsText}${discountText}${deliveryText}\n\nTotal: $${finalTotal}\n\nDatos de entrega:\nNombre: ${formData.name}\nEmail: ${formData.email}\nDirección: ${formData.address}\nReferencia: ${formData.reference}\nTeléfono: ${formData.phone}\nMétodo de Pago: ${formData.paymentMethod === 'cash' ? 'Efectivo' : 'Debito / Credito'}\nNotas: ${formData.notes || 'Sin notas'}`;
@@ -260,9 +299,51 @@ export const Checkout = () => {
           </div>
           <h2 className="text-3xl font-medium text-dark mb-2">¡Pedido Recibido!</h2>
           <p className="text-accent font-medium mb-6">Orden #{orderId}</p>
-          <p className="text-muted mb-8 leading-relaxed">
+          <p className="text-muted mb-6 leading-relaxed">
             Hemos procesado tu pedido con éxito. Ahora puedes enviarlo por WhatsApp al comercio para coordinar la entrega.
           </p>
+
+          <div className="bg-surface/50 rounded-2xl p-4 mb-8 border border-surface text-left">
+            <h4 className="text-xs font-bold text-muted uppercase tracking-widest mb-3 border-b border-surface pb-2">Resumen de tu pedido</h4>
+            <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+              {items.map((item, idx) => (
+                <div key={idx} className="border-b border-surface last:border-0 pb-3 last:pb-0">
+                  <div className="flex justify-between items-start">
+                    <span className="font-bold text-dark text-sm">{item.quantity}x {item.name}</span>
+                    <span className="font-bold text-dark text-sm">${item.price * item.quantity}</span>
+                  </div>
+                  
+                  {/* Modifiers display */}
+                  {item.selected_modifiers && Object.entries(item.selected_modifiers).length > 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      {Object.entries(item.selected_modifiers).map(([group, opts]: [string, any]) => (
+                        <p key={group} className="text-[10px] text-muted leading-tight">
+                          <span className="font-bold uppercase">{group}:</span> {Array.isArray(opts) ? opts.map(o => typeof o === 'string' ? o : o.name).join(', ') : String(opts)}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Extras display */}
+                  {item.selectedExtras && item.selectedExtras.length > 0 && (
+                    <div className="mt-1">
+                      <p className="text-[10px] text-muted leading-tight">
+                        <span className="font-bold uppercase">EXTRAS:</span> {item.selectedExtras.map((e: any) => e.optionName || e.name || String(e)).join(', ')}
+                      </p>
+                    </div>
+                  )}
+
+                  {item.notes && (
+                    <p className="text-[10px] text-accent italic mt-1 leading-tight">"{item.notes}"</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-surface flex justify-between items-center">
+              <span className="font-bold text-dark uppercase text-xs">Total a pagar</span>
+              <span className="font-bold text-accent text-lg">${finalTotal}</span>
+            </div>
+          </div>
           
           <div className="space-y-4">
             <button 
@@ -456,6 +537,34 @@ export const Checkout = () => {
                     <div className="flex-1">
                       <p className="font-medium text-dark">{item.name}</p>
                       <p className="text-xs text-muted">Cantidad: {item.quantity}</p>
+                      {item.selected_modifiers && Object.keys(item.selected_modifiers).length > 0 && (
+                        <div className="text-[10px] text-muted mt-1 space-y-0.5">
+                          {Object.entries(item.selected_modifiers).map(([group, opts]: [string, any]) => {
+                            const optsString = Array.isArray(opts) ? opts.map(o => {
+                              if (typeof o === 'string') return o;
+                              const q = o.quantity ? `${o.quantity}x ` : '';
+                              const n = o.name || o;
+                              return `${q}${n}`;
+                            }).join(', ') : opts;
+                            return <div key={group}><span className="font-medium">{group}:</span> {optsString}</div>;
+                          })}
+                        </div>
+                      )}
+                      {item.selectedExtras && item.selectedExtras.length > 0 && (
+                        <div className="text-[10px] text-muted mt-0.5">
+                          <span className="font-medium">Extras:</span> {item.selectedExtras.map((e: any) => e.optionName).join(', ')}
+                        </div>
+                      )}
+                      {item.selectedSize && (
+                        <div className="text-[10px] text-primary font-medium mt-0.5">
+                          Tamaño: {item.selectedSize.name}
+                        </div>
+                      )}
+                      {item.notes && (
+                        <div className="text-[10px] text-orange-600 bg-orange-50 p-1.5 rounded-lg mt-1 italic border border-orange-100">
+                          "{item.notes}"
+                        </div>
+                      )}
                     </div>
                     <span className="font-medium text-dark ml-4">${Number(item.price) * Number(item.quantity)}</span>
                   </div>

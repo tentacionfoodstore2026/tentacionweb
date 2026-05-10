@@ -597,7 +597,7 @@ const AdministrationSection: React.FC<AdminSectionProps> = ({
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl flex flex-col h-full max-h-[95vh] md:max-h-[85vh] overflow-hidden border border-white/20"
+              className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl flex flex-col h-auto max-h-[90vh] overflow-hidden border border-white/20"
             >
               {/* Fixed Header */}
               <div className="p-6 border-b border-surface flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent shrink-0">
@@ -615,7 +615,7 @@ const AdministrationSection: React.FC<AdminSectionProps> = ({
 
               <form onSubmit={handleCreateUser} className="flex flex-col flex-1 overflow-hidden">
                 {/* Scrollable Body */}
-                <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 scrollbar-hide">
+                <div className="flex-1 overflow-y-auto p-5 md:p-8 space-y-6">
                   <div className="space-y-4">
                     <div>
                       <label className="block text-[9px] font-bold text-muted uppercase tracking-widest mb-1.5 ml-1">Nombre Completo</label>
@@ -1064,8 +1064,29 @@ const DashboardContent: React.FC<{
 export const AdminPanel = () => {
   const { user: currentUser } = useAuthStore();
   const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
-  const [activeTab, setActiveTab] = React.useState(currentUser?.role === 'cocina' ? 'kitchen' : 'dashboard');
-  const [settingsTab, setSettingsTab] = React.useState('portal');
+
+  const getDefaultTab = () => {
+    if (currentUser?.role === 'cocina') return 'kitchen';
+    const saved = localStorage.getItem('adminActiveTab');
+    if (saved) return saved;
+    return 'dashboard';
+  };
+
+  const [activeTab, setActiveTab] = useState<string>(getDefaultTab);
+  const [settingsTab, setSettingsTab] = useState<string>(localStorage.getItem('adminSettingsTab') || 'portal');
+
+  const handleTabChange = (tab: string) => {
+    if (currentUser?.role === 'cocina' && tab !== 'kitchen') return;
+    setActiveTab(tab);
+    localStorage.setItem('adminActiveTab', tab);
+  };
+
+  const handleSettingsTabChange = (section: string) => {
+    if (currentUser?.role === 'cocina') return;
+    setActiveTab('settings');
+    setSettingsTab(section);
+    localStorage.setItem('adminSettingsTab', section);
+  };
   const [showSupabaseKey, setShowSupabaseKey] = React.useState(false);
   const [showMapsKey, setShowMapsKey] = React.useState(false);
   const [mapsApiKey, setMapsApiKey] = React.useState('');
@@ -1079,6 +1100,7 @@ export const AdminPanel = () => {
   const [kitchenStatusFilter, setKitchenStatusFilter] = React.useState('active');
   const [kitchenBusinessFilter, setKitchenBusinessFilter] = React.useState('all');
   const [kitchenSearchQuery, setKitchenSearchQuery] = React.useState('');
+  const [kitchenDateFilter, setKitchenDateFilter] = React.useState('');
   const [orders, setOrders] = React.useState<any[]>([]);
   const [isEditingBusiness, setIsEditingBusiness] = React.useState(false);
   const [currentBusiness, setCurrentBusiness] = React.useState<Partial<Business> | null>(null);
@@ -1108,6 +1130,16 @@ export const AdminPanel = () => {
   const [couponUsage, setCouponUsage] = useState<any[]>([]);
   const [loadingUsage, setLoadingUsage] = useState(false);
   const [selectedCouponForUsage, setSelectedCouponForUsage] = useState<string | null>(null);
+
+  // Kitchen / Order Details Modal
+  const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<any>(null);
+
+  const openOrderDetails = (order: any) => {
+    setSelectedOrderForDetails(order);
+    setShowOrderDetailsModal(true);
+  };
+
 
   const [portalSettings, setPortalSettings] = useState({
     name: 'Tentacion Food Store',
@@ -1453,7 +1485,7 @@ export const AdminPanel = () => {
         
         const importedData: any = {};
         headers.forEach((header, index) => {
-          let value = row[index]?.replace(/^"|"$/g, '').replace(/""/g, '"');
+          let value: any = row[index]?.replace(/^"|"$/g, '').replace(/""/g, '"');
           
           if (header === 'openingHours') {
             try {
@@ -1864,8 +1896,8 @@ export const AdminPanel = () => {
       case 'confirmed':  return { label: 'En Cocina',           color: 'bg-blue-100 text-blue-700' };
       case 'ready':      return { label: 'Listo para Envío',    color: 'bg-purple-100 text-purple-700' };
       case 'assigned':   return { label: 'Conductor Asignado',  color: 'bg-indigo-100 text-indigo-700' };
-      case 'picked_up':  return { label: 'En Camino',           color: 'bg-orange-100 text-orange-700' };
-      case 'delivering': return { label: 'En Reparto',          color: 'bg-orange-100 text-orange-700' };
+      case 'picked_up':  return { label: 'Entregado a Conductor', color: 'bg-orange-100 text-orange-700' };
+      case 'delivering': return { label: 'En Camino',           color: 'bg-orange-100 text-orange-700' };
       case 'delivered':  return { label: 'Entregado',           color: 'bg-green-100 text-green-700' };
       case 'cancelled':  return { label: 'Cancelado',           color: 'bg-red-100 text-red-700' };
       default:           return { label: status,                color: 'bg-gray-100 text-gray-700' };
@@ -2130,25 +2162,27 @@ export const AdminPanel = () => {
                  activeTab === 'logs' ? 'Registro detallado de acciones y eventos del sistema.' : 'Ajustes del sistema.'}
               </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="bg-surface p-4 rounded-2xl border border-surface shadow-sm flex items-center space-x-3">
-                <Users className="text-blue-500" size={24} />
-                <div>
-                  <p className="text-xs font-medium text-muted uppercase">Usuarios</p>
-                  <p className="text-xl font-medium text-dark">{users.length}</p>
+            {currentUser?.role !== 'cocina' && (
+              <div className="flex items-center space-x-4">
+                <div className="bg-surface p-4 rounded-2xl border border-surface shadow-sm flex items-center space-x-3">
+                  <Users className="text-blue-500" size={24} />
+                  <div>
+                    <p className="text-xs font-medium text-muted uppercase">Usuarios</p>
+                    <p className="text-xl font-medium text-dark">{users.length}</p>
+                  </div>
+                </div>
+                <div className="bg-surface p-4 rounded-2xl border border-surface shadow-sm flex items-center space-x-3">
+                  <Store className="text-accent" size={24} />
+                  <div>
+                    <p className="text-xs font-medium text-muted uppercase">Comercios</p>
+                    <p className="text-xl font-medium text-dark">{businesses.length}</p>
+                  </div>
                 </div>
               </div>
-              <div className="bg-surface p-4 rounded-2xl border border-surface shadow-sm flex items-center space-x-3">
-                <Store className="text-accent" size={24} />
-                <div>
-                  <p className="text-xs font-medium text-muted uppercase">Comercios</p>
-                  <p className="text-xl font-medium text-dark">{businesses.length}</p>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
-          {activeTab === 'dashboard' && (
+          {activeTab === 'dashboard' && currentUser?.role !== 'cocina' && (
             <DashboardContent orders={orders} users={users} businesses={businesses} />
           )}
 
@@ -2437,111 +2471,84 @@ export const AdminPanel = () => {
 
           {activeTab === 'orders' && (
             <div className="bg-white rounded-2xl border border-surface shadow-sm overflow-hidden mb-12">
-              <div className="p-6 border-b border-surface flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-xl font-medium text-dark">Listado de Pedidos</h2>
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
-                    <input 
-                      type="text" 
-                      placeholder="Buscar pedido o cliente..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="bg-surface border border-surface rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-48"
-                    />
-                  </div>
-
-                  <select
-                    value={orderBusinessFilter}
-                    onChange={(e) => setOrderBusinessFilter(e.target.value)}
-                    className="bg-surface border border-surface rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  >
-                    <option value="all">Todos los locales</option>
-                    {businesses.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={orderStatusFilter}
-                    onChange={(e) => setOrderStatusFilter(e.target.value)}
-                    className="bg-surface border border-surface rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  >
-                    <option value="all">Todos los estados</option>
-                    <option value="pending">Pendiente</option>
-                    <option value="confirmed">En Cocina</option>
-                    <option value="ready">Listo para Envío</option>
-                    <option value="assigned">Conductor Asignado</option>
-                    <option value="picked_up">En Camino</option>
-                    <option value="delivered">Entregado</option>
-                    <option value="cancelled">Cancelado</option>
-                  </select>
-
-                  <input 
-                    type="date"
-                    value={orderDateFilter}
-                    onChange={(e) => setOrderDateFilter(e.target.value)}
-                    className="bg-surface border border-surface rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                  
-                  {(orderStatusFilter !== 'all' || orderBusinessFilter !== 'all' || orderDateFilter !== '' || searchQuery !== '') && (
+              <div className="p-6 border-b border-surface space-y-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex items-center space-x-4">
+                    <h2 className="text-xl font-medium text-dark">Listado de Pedidos</h2>
                     <button 
-                      onClick={() => {
-                        setOrderStatusFilter('all');
-                        setOrderBusinessFilter('all');
-                        setOrderDateFilter('');
-                        setSearchQuery('');
-                      }}
-                      className="p-2 text-muted hover:text-accent transition-colors"
-                      title="Limpiar filtros"
+                      onClick={exportOrdersToExcel}
+                      className="bg-[#1D6F42]/10 text-[#1D6F42] px-3 py-1.5 rounded-lg font-medium text-[10px] uppercase tracking-wider flex items-center space-x-1.5 hover:bg-[#1D6F42]/20 transition-all border border-[#1D6F42]/20"
                     >
-                      <XCircle size={20} />
+                      <FileSpreadsheet size={14} />
+                      <span>Excel</span>
                     </button>
-                  )}
+                  </div>
                   
-                  <button 
-                    onClick={exportOrdersToExcel}
-                    className="bg-[#1D6F42]/10 text-[#1D6F42] px-4 py-2 rounded-xl font-medium text-xs flex items-center space-x-2 hover:bg-[#1D6F42]/20 transition-all border border-[#1D6F42]/20"
-                    title="Exportar a Excel"
-                  >
-                    <FileSpreadsheet size={16} />
-                    <span>Exportar</span>
-                  </button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar pedido o cliente..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="bg-surface border border-surface rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-full sm:w-64"
+                      />
+                    </div>
+
+                    <select
+                      value={orderBusinessFilter}
+                      onChange={(e) => setOrderBusinessFilter(e.target.value)}
+                      className="bg-surface border border-surface rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="all">Todos los locales</option>
+                      {businesses.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+
+                    <input 
+                      type="date"
+                      value={orderDateFilter}
+                      onChange={(e) => setOrderDateFilter(e.target.value)}
+                      className="bg-surface border border-surface rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+
+                    {(orderStatusFilter !== 'all' || orderBusinessFilter !== 'all' || orderDateFilter !== '' || searchQuery !== '') && (
+                      <button 
+                        onClick={() => {
+                          setOrderStatusFilter('all');
+                          setOrderBusinessFilter('all');
+                          setOrderDateFilter('');
+                          setSearchQuery('');
+                        }}
+                        className="p-2 text-muted hover:text-accent transition-colors"
+                        title="Limpiar filtros"
+                      >
+                        <XCircle size={20} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status Filter Row */}
+                <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {['all', 'pending', 'confirmed', 'ready', 'assigned', 'picked_up', 'delivering', 'delivered', 'cancelled'].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setOrderStatusFilter(status)}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] whitespace-nowrap transition-all border ${
+                        orderStatusFilter === status 
+                          ? 'bg-primary text-dark border-primary shadow-lg shadow-primary/20 scale-105' 
+                          : 'bg-white text-muted border-surface hover:border-primary/30'
+                      }`}
+                    >
+                      {status === 'all' ? 'Todos' : getStatusInfo(status).label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Status Quick Filters */}
-              <div className="p-4 bg-surface/50 border-b border-surface flex flex-wrap gap-2 no-print">
-                {[
-                  { id: 'pending', label: 'Nuevo', color: 'bg-yellow-500' },
-                  { id: 'confirmed', label: 'En Cocina', color: 'bg-blue-500' },
-                  { id: 'ready', label: 'Terminado', color: 'bg-purple-500' },
-                  { id: 'picked_up', label: 'En Camino', color: 'bg-orange-500' },
-                  { id: 'delivered', label: 'Entregado', color: 'bg-green-500' },
-                  { id: 'cancelled', label: 'Cancelado', color: 'bg-red-500' }
-                ].map(status => (
-                  <button
-                    key={status.id}
-                    onClick={() => setOrderStatusFilter(status.id)}
-                    className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all flex items-center space-x-2 ${
-                      orderStatusFilter === status.id 
-                        ? `${status.color} text-white shadow-lg` 
-                        : 'bg-white text-muted hover:bg-surface border border-surface'
-                    }`}
-                  >
-                    <div className={`w-2 h-2 rounded-full ${orderStatusFilter === status.id ? 'bg-white' : status.color}`} />
-                    <span>{status.label}</span>
-                  </button>
-                ))}
-                {orderStatusFilter !== 'all' && (
-                  <button
-                    onClick={() => setOrderStatusFilter('all')}
-                    className="px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-dark text-white shadow-lg transition-all"
-                  >
-                    Ver Todos
-                  </button>
-                )}
-              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-surface border-b border-surface">
@@ -2594,63 +2601,76 @@ export const AdminPanel = () => {
               
               const matchesBusiness = kitchenBusinessFilter === 'all' || o.business_id === kitchenBusinessFilter;
               
-              let matchesStatus = false;
-              if (kitchenStatusFilter === 'active') {
-                matchesStatus = ['pending', 'confirmed', 'ready', 'assigned', 'picked_up', 'delivering'].includes(o.status);
-              } else if (kitchenStatusFilter === 'delivering') {
-                matchesStatus = ['assigned', 'picked_up', 'delivering'].includes(o.status);
-              } else {
-                matchesStatus = o.status === kitchenStatusFilter;
-              }
+              const matchesDate = !kitchenDateFilter || 
+                new Date(o.created_at).toISOString().split('T')[0] === kitchenDateFilter;
+              
+              const matchesStatus = kitchenStatusFilter === 'active' 
+                ? ['pending', 'confirmed', 'ready', 'picked_up', 'delivering'].includes(o.status)
+                : kitchenStatusFilter === 'delivering' 
+                  ? ['picked_up', 'delivering'].includes(o.status)
+                  : o.status === kitchenStatusFilter;
 
-              return matchesSearch && matchesStatus && matchesBusiness;
+              return matchesSearch && matchesBusiness && matchesStatus && matchesDate;
             });
 
             return (
-              <div className="mb-12">
-                <div className="mb-8 space-y-4">
-                  <div className="flex flex-col gap-4">
-                    {/* Top Row: Filters and Search */}
-                    <div className="flex flex-col sm:flex-row items-center justify-end gap-3">
-                      <select
-                        value={kitchenBusinessFilter}
-                        onChange={(e) => setKitchenBusinessFilter(e.target.value)}
-                        className="bg-white border border-surface rounded-2xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm w-full sm:w-48"
-                      >
-                        <option value="all">Todos los locales</option>
-                        {businesses.map(b => (
-                          <option key={b.id} value={b.id}>{b.name}</option>
-                        ))}
-                      </select>
-
-                      <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="bg-white/80 backdrop-blur-md rounded-3xl p-6 border border-white shadow-xl mb-8">
+                  <div className="flex flex-col gap-6">
+                    {/* Top Row: Business and Search */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
                         <input 
                           type="text" 
-                          placeholder="Buscar pedido..."
+                          placeholder="Buscar por ID o comercio..."
                           value={kitchenSearchQuery}
                           onChange={(e) => setKitchenSearchQuery(e.target.value)}
-                          className="w-full bg-white border border-surface rounded-2xl py-2.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm"
+                          className="w-full bg-white border border-surface rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm transition-all"
                         />
                       </div>
-                      
-                      {(kitchenStatusFilter !== 'active' || kitchenBusinessFilter !== 'all' || kitchenSearchQuery !== '') && (
-                        <button 
-                          onClick={() => {
-                            setKitchenStatusFilter('active');
-                            setKitchenBusinessFilter('all');
-                            setKitchenSearchQuery('');
-                          }}
-                          className="p-2 text-muted hover:text-accent transition-colors"
-                          title="Limpiar filtros"
+
+                      <div className="relative group">
+                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={18} />
+                        <input 
+                          type="date" 
+                          value={kitchenDateFilter}
+                          onChange={(e) => setKitchenDateFilter(e.target.value)}
+                          className="w-full bg-white border border-surface rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm transition-all"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <select
+                          value={kitchenBusinessFilter}
+                          onChange={(e) => setKitchenBusinessFilter(e.target.value)}
+                          className="flex-1 bg-white border border-surface rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm transition-all"
                         >
-                          <XCircle size={20} />
-                        </button>
-                      )}
+                          <option value="all">Todos los locales</option>
+                          {businesses.map(b => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
+                        </select>
+
+                        {(kitchenStatusFilter !== 'active' || kitchenBusinessFilter !== 'all' || kitchenSearchQuery !== '' || kitchenDateFilter !== '') && (
+                          <button 
+                            onClick={() => {
+                              setKitchenStatusFilter('active');
+                              setKitchenBusinessFilter('all');
+                              setKitchenSearchQuery('');
+                              setKitchenDateFilter('');
+                            }}
+                            className="p-3 bg-white text-muted hover:text-red-500 rounded-2xl border border-surface shadow-sm transition-all"
+                            title="Limpiar filtros"
+                          >
+                            <XCircle size={20} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Bottom Row: Status Filters - All in one line */}
-                    <div className="flex flex-wrap items-center gap-2">
+                    {/* Bottom Row: Status Filters - All in one scrollable line */}
+                    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-2 -mx-2 px-2 custom-scrollbar no-scrollbar">
                       <button
                         onClick={() => setKitchenStatusFilter('active')}
                         className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
@@ -2725,24 +2745,61 @@ export const AdminPanel = () => {
                             {getStatusInfo(order.status).label}
                           </span>
                         </div>
-                        <div className="p-6 flex-1">
-                          <div className="mb-4">
-                            <p className="text-xs font-medium text-muted uppercase mb-2">Comercio</p>
-                            <p className="font-bold text-dark">{order.businesses?.name}</p>
+                        <div className="p-4 flex-1 flex flex-col min-h-0">
+                          <div className="mb-3 flex items-center justify-between">
+                            <span className="font-bold text-dark text-sm truncate">{order.businesses?.name}</span>
                           </div>
-                          <div className="space-y-3">
-                            <p className="text-xs font-medium text-muted uppercase">Items a preparar</p>
+                          <div className="space-y-2 overflow-y-auto custom-scrollbar pr-1 max-h-[180px]">
                             {order.order_items?.map((item: any) => (
-                              <div key={item.id} className="flex justify-between items-center bg-surface p-3 rounded-2xl">
-                                <div className="flex items-center space-x-3">
-                                  <span className="bg-primary text-dark w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs">{item.quantity}</span>
-                                  <span className="font-medium text-dark text-sm">{item.products?.name}</span>
+                              <div key={item.id} className="flex flex-col bg-surface/50 p-2.5 rounded-xl gap-1">
+                                <div className="flex items-start space-x-2">
+                                  <span className="bg-primary/20 text-primary w-5 h-5 rounded flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{item.quantity}</span>
+                                  <div className="flex-1">
+                                    <span className="font-semibold text-dark text-xs leading-tight">{item.products?.name}</span>
+                                    
+                                    {item.selected_size && (
+                                      <div className="text-[10px] text-primary font-medium mt-0.5">Tamaño: {item.selected_size}</div>
+                                    )}
+                                    
+                                    {item.selected_modifiers && Object.keys(item.selected_modifiers).length > 0 && (
+                                      <div className="text-[10px] text-muted mt-0.5 space-y-0.5">
+                                        {Object.entries(item.selected_modifiers).map(([group, opts]: [string, any]) => {
+                                          const optsString = Array.isArray(opts) ? opts.map(o => {
+                                            if (typeof o === 'string') return o;
+                                            const q = o.quantity ? `${o.quantity}x ` : '';
+                                            const n = o.name || o;
+                                            return `${q}${n}`;
+                                          }).join(', ') : opts;
+                                          return <div key={group}><span className="font-medium text-dark/70">{group}:</span> {optsString}</div>;
+                                        })}
+                                      </div>
+                                    )}
+
+                                    {item.selected_extras && item.selected_extras.length > 0 && (
+                                      <div className="text-[10px] text-muted mt-0.5">
+                                        <span className="font-medium text-dark/70">Extras:</span> {item.selected_extras.map((e: any) => e.optionName).join(', ')}
+                                      </div>
+                                    )}
+
+                                    {item.notes && (
+                                      <div className="text-[10px] text-orange-600 bg-orange-50 p-1.5 rounded-lg mt-1 italic border border-orange-100">
+                                        "{item.notes}"
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             ))}
                           </div>
                         </div>
-                        <div className="p-4 bg-surface border-t border-surface space-y-2">
+                        <div className="p-3 bg-surface/30 border-t border-surface space-y-2 shrink-0">
+                          <button 
+                            onClick={() => openOrderDetails(order)}
+                            className="w-full bg-white text-dark py-2.5 rounded-2xl border border-surface shadow-sm font-bold text-sm hover:bg-gray-50 transition-all flex items-center justify-center space-x-2"
+                          >
+                            <Eye size={16} />
+                            <span>Ver Detalle del Pedido</span>
+                          </button>
                           {order.status === 'pending' ? (
                             <button 
                               onClick={() => updateOrderStatus(order.id, 'confirmed')}
@@ -2786,6 +2843,162 @@ export const AdminPanel = () => {
                     ))
                   )}
                 </div>
+
+                {/* Order Details Modal */}
+                <AnimatePresence>
+                  {showOrderDetailsModal && selectedOrderForDetails && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-dark/60 backdrop-blur-sm overflow-hidden">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-white/20"
+                      >
+                        {/* Header */}
+                        <div className="p-6 border-b border-surface flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent shrink-0">
+                          <div>
+                            <h3 className="text-xl font-bold text-dark uppercase tracking-tight">Detalle del Pedido</h3>
+                            <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-1">
+                              Pedido #{selectedOrderForDetails.id.split('-')[0]} — {selectedOrderForDetails.businesses?.name}
+                            </p>
+                          </div>
+                          <button 
+                            onClick={() => setShowOrderDetailsModal(false)}
+                            className="p-2 hover:bg-surface rounded-xl transition-colors text-muted"
+                          >
+                            <X size={24} />
+                          </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                          <div className="space-y-4">
+                            <h4 className="text-xs font-bold text-muted uppercase tracking-widest border-b border-surface pb-2">Artículos del Pedido</h4>
+                            
+                            {/* Empty state */}
+                            {(!selectedOrderForDetails.order_items || selectedOrderForDetails.order_items.filter((i: any) => i.id).length === 0) && (
+                              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
+                                <p className="text-sm text-amber-700 font-medium">No hay artículos registrados para este pedido.</p>
+                                <p className="text-xs text-amber-600 mt-1">El total del pedido fue: <strong>${selectedOrderForDetails.total}</strong></p>
+                              </div>
+                            )}
+
+                            {selectedOrderForDetails.order_items?.filter((i: any) => i.id).map((item: any) => {
+                              // Parse selected_modifiers safely — could be object or array
+                              const mods = item.selected_modifiers;
+                              const modsIsObj = mods && !Array.isArray(mods) && typeof mods === 'object';
+                              const modsEntries: [string, any][] = modsIsObj ? Object.entries(mods) : [];
+
+                              // Parse selected_extras safely
+                              const extras = Array.isArray(item.selected_extras) ? item.selected_extras : [];
+
+                              return (
+                                <div key={item.id} className="bg-white rounded-2xl p-4 border border-surface shadow-sm">
+                                  {/* Header: quantity + product name */}
+                                  <div className="flex items-center space-x-3 mb-3">
+                                    <span className="bg-primary text-dark w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shadow-sm shrink-0">{item.quantity}</span>
+                                    <div>
+                                      <span className="font-bold text-dark text-base">{item.products?.name || 'Producto'}</span>
+                                      {item.selected_size && (
+                                        <span className="ml-2 px-2 py-0.5 bg-dark text-white rounded-md text-[10px] font-bold uppercase tracking-wider align-middle">
+                                          {item.selected_size}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Modifiers from global modifier groups */}
+                                  {modsEntries.length > 0 && (
+                                    <div className="ml-12 space-y-1.5">
+                                      {modsEntries.map(([groupName, options]) => (
+                                        <div key={groupName} className="flex items-start gap-2">
+                                          <span className="text-[10px] font-bold text-muted uppercase tracking-tight pt-0.5 shrink-0 min-w-[80px]">{groupName}:</span>
+                                          <div className="flex flex-wrap gap-1">
+                                            {Array.isArray(options)
+                                              ? options.map((opt: any, i: number) => {
+                                                  const label = typeof opt === 'string' ? opt : opt.name || 'Opción';
+                                                  const qty = typeof opt === 'object' && opt.quantity > 1 ? `${opt.quantity}x ` : '';
+                                                  return (
+                                                    <span key={i} className="px-2 py-0.5 bg-primary/15 text-dark rounded-lg text-xs font-semibold">
+                                                      {qty}{label}
+                                                    </span>
+                                                  );
+                                                })
+                                              : <span className="text-xs text-dark font-semibold">{String(options)}</span>
+                                            }
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Legacy extras (non-modifier extras) */}
+                                  {extras.length > 0 && (
+                                    <div className="ml-12 mt-1.5 flex items-start gap-2">
+                                      <span className="text-[10px] font-bold text-muted uppercase tracking-tight pt-0.5 shrink-0 min-w-[80px]">Extras:</span>
+                                      <div className="flex flex-wrap gap-1">
+                                        {extras.map((e: any, i: number) => {
+                                          // Avoid showing extras that duplicate modifier entries
+                                          const label = e.optionName || e.name || String(e);
+                                          const alreadyInMods = modsEntries.some(([, opts]) =>
+                                            Array.isArray(opts) && opts.some((o: any) => (o.name || o) === label)
+                                          );
+                                          if (alreadyInMods) return null;
+                                          return (
+                                            <span key={i} className="px-2 py-0.5 bg-accent/15 text-dark rounded-lg text-xs font-semibold">
+                                              {label}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Special instructions / notes */}
+                                  {item.notes && (
+                                    <div className="ml-12 mt-3 bg-amber-50 border border-amber-100 p-3 rounded-xl flex items-start space-x-2">
+                                      <Info className="text-amber-500 mt-0.5 shrink-0" size={14} />
+                                      <p className="text-xs text-amber-800 font-medium italic">"{item.notes}"</p>
+                                    </div>
+                                  )}
+
+                                  {/* No customizations indicator */}
+                                  {modsEntries.length === 0 && extras.length === 0 && !item.notes && (
+                                    <p className="ml-12 text-xs text-muted italic">Sin personalizaciones</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-surface/30 p-4 rounded-2xl border border-surface">
+                              <h4 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Datos del Cliente</h4>
+                              <p className="font-bold text-dark text-sm">{selectedOrderForDetails.customer_name || selectedOrderForDetails.profiles?.name || 'Cliente'}</p>
+                              <p className="text-xs text-muted">{selectedOrderForDetails.customer_phone}</p>
+                            </div>
+                            <div className="bg-surface/30 p-4 rounded-2xl border border-surface">
+                              <h4 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Método de Pago</h4>
+                              <p className="font-bold text-dark text-sm capitalize">{selectedOrderForDetails.payment_method?.replace('_', ' ')}</p>
+                              <p className="text-xs text-muted">Total: <span className="font-bold text-accent">${selectedOrderForDetails.total}</span></p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-6 border-t border-surface bg-surface/30 shrink-0">
+                          <button
+                            onClick={() => setShowOrderDetailsModal(false)}
+                            className="w-full bg-dark text-white font-bold py-4 rounded-xl hover:bg-dark/90 transition-all uppercase tracking-widest text-xs"
+                          >
+                            Cerrar
+                          </button>
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+
               </div>
             );
           })()}
@@ -3739,17 +3952,17 @@ export const AdminPanel = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]"
+              className="relative bg-white rounded-2xl shadow-2xl w-[95%] max-w-6xl overflow-hidden border border-white/20 flex flex-col max-h-[95vh] md:max-h-[90vh]"
             >
               {/* Header Premium */}
-              <div className="p-8 border-b border-surface flex justify-between items-center bg-gradient-to-r from-primary/10 to-transparent shrink-0">
-                <div className="flex items-center space-x-5">
-                  <div className="p-4 bg-primary text-dark rounded-2xl shadow-xl shadow-primary/20">
-                    <Store size={28} />
+              <div className="p-4 md:p-8 border-b border-surface flex justify-between items-center bg-gradient-to-r from-primary/10 to-transparent shrink-0">
+                <div className="flex items-center space-x-3 md:space-x-5">
+                  <div className="p-3 md:p-4 bg-primary text-dark rounded-xl md:rounded-2xl shadow-xl shadow-primary/20">
+                    <Store size={24} className="md:w-7 md:h-7" />
                   </div>
                   <div>
-                    <h3 className="text-3xl font-medium text-dark tracking-tight leading-none">
-                      {currentBusiness?.id ? 'Ficha Técnica de Comercio' : 'Alta de Nuevo Comercio'}
+                    <h3 className="text-xl md:text-3xl font-medium text-dark tracking-tight leading-none">
+                      {currentBusiness?.id ? 'Ficha Técnica' : 'Nuevo Comercio'}
                     </h3>
                     <div className="flex items-center mt-2 space-x-3">
                       <span className="text-[10px] text-muted font-bold uppercase tracking-[0.2em]">Panel Administrativo</span>
@@ -3796,7 +4009,7 @@ export const AdminPanel = () => {
                 </div>
               </div>
 
-              <form onSubmit={handleSaveBusiness} noValidate className="flex-1 overflow-y-auto p-10 space-y-12 scrollbar-hide">
+              <form onSubmit={handleSaveBusiness} noValidate className="flex-1 overflow-y-auto p-4 md:p-10 space-y-8 md:space-y-12">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                   
                   {/* Columna Izquierda: Identidad y Visual (4/12) */}
@@ -4063,19 +4276,19 @@ export const AdminPanel = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]"
+              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh] sm:max-h-[85vh]"
             >
               {/* Header */}
-              <div className="p-8 border-b border-surface flex justify-between items-center bg-gradient-to-r from-primary/10 to-transparent">
+              <div className="p-4 sm:p-8 border-b border-surface flex justify-between items-center bg-gradient-to-r from-primary/10 to-transparent shrink-0">
                 <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-primary text-dark rounded-2xl shadow-lg shadow-primary/20">
-                    <Tag size={24} />
+                  <div className="p-2 sm:p-3 bg-primary text-dark rounded-xl sm:rounded-2xl shadow-lg shadow-primary/20">
+                    <Tag size={20} className="sm:w-6 sm:h-6" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-medium text-dark tracking-tight">
+                    <h3 className="text-lg sm:text-2xl font-medium text-dark tracking-tight">
                       {currentCoupon?.id ? 'Editar Cupón' : 'Nuevo Cupón Global'}
                     </h3>
-                    <p className="text-xs text-muted font-semibold uppercase tracking-widest">Configuración de beneficios</p>
+                    <p className="hidden sm:block text-[10px] text-muted font-bold uppercase tracking-widest">Configuración de beneficios</p>
                   </div>
                 </div>
                 <button 
@@ -4086,7 +4299,7 @@ export const AdminPanel = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleSaveCoupon} className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-hide">
+              <form onSubmit={handleSaveCoupon} className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 sm:space-y-8 scrollbar-hide">
                 {/* Sección 1: Identificación */}
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] flex items-center">
@@ -4275,32 +4488,32 @@ export const AdminPanel = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]"
+              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh] sm:max-h-[85vh]"
             >
               {/* Header Premium */}
-              <div className="p-8 border-b border-surface flex justify-between items-center bg-gradient-to-r from-primary/10 to-transparent shrink-0">
-                <div className="flex items-center space-x-5">
-                  <div className="p-4 bg-primary text-dark rounded-2xl shadow-xl shadow-primary/20">
-                    <Truck size={28} />
+              <div className="p-4 sm:p-8 border-b border-surface flex justify-between items-center bg-gradient-to-r from-primary/10 to-transparent shrink-0">
+                <div className="flex items-center space-x-4 sm:space-x-5">
+                  <div className="p-3 sm:p-4 bg-primary text-dark rounded-xl sm:rounded-2xl shadow-xl shadow-primary/20">
+                    <Truck size={24} className="sm:w-7 sm:h-7" />
                   </div>
                   <div>
-                    <h3 className="text-3xl font-medium text-dark tracking-tight leading-none">
-                      {currentDriver?.id ? 'Expediente del Conductor' : 'Alta de Nuevo Repartidor'}
+                    <h3 className="text-xl sm:text-3xl font-medium text-dark tracking-tight leading-none">
+                      {currentDriver?.id ? 'Expediente' : 'Nuevo Repartidor'}
                     </h3>
-                    <div className="flex items-center mt-2 space-x-3">
+                    <div className="hidden sm:flex items-center mt-2 space-x-3">
                       <span className="text-[10px] text-muted font-bold uppercase tracking-[0.2em]">Gestión de Personal</span>
                     </div>
                   </div>
                 </div>
                 <button 
                   onClick={() => setIsEditingDriver(false)} 
-                  className="p-3 hover:bg-red-50 hover:text-red-500 rounded-full transition-all text-muted group"
+                  className="p-2 sm:p-3 hover:bg-red-50 hover:text-red-500 rounded-full transition-all text-muted group"
                 >
-                  <X size={28} className="group-hover:rotate-90 transition-transform duration-300" />
+                  <X size={24} className="sm:w-7 sm:h-7 group-hover:rotate-90 transition-transform duration-300" />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveDriver} noValidate className="flex-1 overflow-y-auto p-10 space-y-12 scrollbar-hide">
+              <form onSubmit={handleSaveDriver} noValidate className="flex-1 overflow-y-auto p-4 sm:p-10 space-y-8 sm:space-y-12 scrollbar-hide">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                   
                   {/* Columna Izquierda: Identidad y Documentación (5/12) */}
@@ -4533,13 +4746,13 @@ export const AdminPanel = () => {
         )}
 
         {isEditingBanner && currentBanner && (
-          <div className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-[100] flex items-center justify-center p-2 sm:p-4">
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="bg-surface w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden border border-white/20"
+              className="bg-surface w-full max-w-4xl max-h-[95vh] rounded-[2.5rem] sm:rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 flex flex-col"
             >
-              <div className="p-10">
+              <div className="p-6 sm:p-10 overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-center mb-8">
                   <div className="flex items-center space-x-4">
                     <div className="bg-primary/20 p-3 rounded-2xl">

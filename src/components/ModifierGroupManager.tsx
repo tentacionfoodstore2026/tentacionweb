@@ -67,6 +67,8 @@ export const ModifierGroupManager: React.FC<ModifierGroupManagerProps> = ({ busi
           ...g,
           selection_type: g.type,
           is_required: g.required,
+          min_selections: g.min_selections || 0,
+          max_selections: g.max_selections || 1,
           options: (g.modifier_options || []).map((opt: any) => ({
             ...opt,
             extra_price: opt.price
@@ -84,12 +86,15 @@ export const ModifierGroupManager: React.FC<ModifierGroupManagerProps> = ({ busi
     if (!editingGroup?.name) return;
     setIsSaving(true);
     try {
+      const isMultiple = editingGroup.selection_type === 'multiple';
       const groupData = {
         name: editingGroup.name,
         type: editingGroup.selection_type || 'single',
         required: editingGroup.is_required || false,
+        min_selections: isMultiple ? (Number(editingGroup.min_selections) || 0) : 0,
+        max_selections: isMultiple ? (Number(editingGroup.max_selections) || 1) : 1,
         business_id: businessId,
-        sort_order: editingGroup.id ? editingGroup.sort_order : groups.length,
+        sort_order: editingGroup.id ? (editingGroup.sort_order ?? 0) : groups.length,
       };
 
       let groupId = editingGroup.id;
@@ -235,7 +240,7 @@ export const ModifierGroupManager: React.FC<ModifierGroupManagerProps> = ({ busi
                   <div>
                     <p className="text-sm font-semibold text-dark">{group.name}</p>
                     <p className="text-[9px] font-medium text-muted uppercase tracking-wider mt-0.5">
-                      {group.selection_type === 'single' ? 'Selección única' : 'Múltiple'} · {group.options.length} opciones
+                      {group.selection_type === 'single' ? 'Selección única' : `Múltiple (Min: ${group.min_selections} · Max: ${group.max_selections})`} · {group.options.length} opciones
                       {group.is_required && ' · Obligatorio'}
                     </p>
                   </div>
@@ -380,11 +385,11 @@ export const ModifierGroupManager: React.FC<ModifierGroupManagerProps> = ({ busi
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-semibold text-muted mb-2 uppercase tracking-widest">Mín. selecciones</label>
-                      <input type="number" min={0} value={editingGroup.min_selections} onChange={e => setEditingGroup({ ...editingGroup, min_selections: Number(e.target.value) })} className="w-full bg-surface border-none rounded-2xl px-4 py-3 text-sm font-semibold" />
+                      <input type="number" min={0} value={editingGroup.min_selections ?? 0} onChange={e => setEditingGroup({ ...editingGroup, min_selections: Number(e.target.value) })} className="w-full bg-surface border-none rounded-2xl px-4 py-3 text-sm font-semibold" />
                     </div>
                     <div>
                       <label className="block text-[10px] font-semibold text-muted mb-2 uppercase tracking-widest">Máx. selecciones</label>
-                      <input type="number" min={1} value={editingGroup.max_selections} onChange={e => setEditingGroup({ ...editingGroup, max_selections: Number(e.target.value) })} className="w-full bg-surface border-none rounded-2xl px-4 py-3 text-sm font-semibold" />
+                      <input type="number" min={1} value={editingGroup.max_selections ?? 1} onChange={e => setEditingGroup({ ...editingGroup, max_selections: Number(e.target.value) })} className="w-full bg-surface border-none rounded-2xl px-4 py-3 text-sm font-semibold" />
                     </div>
                   </div>
                 )}

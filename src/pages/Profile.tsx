@@ -74,8 +74,8 @@ export const Profile = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` },
-        () => {
-          // On any change (INSERT, UPDATE, DELETE), re-fetch to get full joined data
+        (payload) => {
+          console.log('Update detected:', payload);
           fetchOrders();
         }
       )

@@ -268,6 +268,35 @@ export const Navbar = () => {
                       <div className="flex-1">
                         <h3 className="font-medium text-dark">{item.name}</h3>
                         <p className="text-sm text-muted line-clamp-1">{item.description}</p>
+                        
+                        {item.selected_modifiers && Object.keys(item.selected_modifiers).length > 0 && (
+                          <div className="text-[10px] text-muted mt-1 space-y-0.5">
+                            {Object.entries(item.selected_modifiers).map(([group, opts]: [string, any]) => {
+                              const optsString = Array.isArray(opts) ? opts.map(o => {
+                                if (typeof o === 'string') return o;
+                                const q = o.quantity ? `${o.quantity}x ` : '';
+                                const n = o.name || o;
+                                return `${q}${n}`;
+                              }).join(', ') : opts;
+                              return <div key={group}><span className="font-medium">{group}:</span> {optsString}</div>;
+                            })}
+                          </div>
+                        )}
+                        {item.selectedExtras && item.selectedExtras.length > 0 && (
+                          <div className="text-[10px] text-muted mt-0.5">
+                            <span className="font-medium">Extras:</span> {item.selectedExtras.map((e: any) => e.optionName).join(', ')}
+                          </div>
+                        )}
+                        {item.selectedSize && (
+                          <div className="text-[10px] text-primary font-medium mt-0.5">
+                            Tamaño: {item.selectedSize.name}
+                          </div>
+                        )}
+                        {item.notes && (
+                          <div className="text-[10px] text-orange-600 bg-orange-50 p-1.5 rounded-lg mt-1 italic border border-orange-100">
+                            "{item.notes}"
+                          </div>
+                        )}
                         <div className="mt-2 flex items-center justify-between">
                           <div className="flex items-center space-x-3 bg-surface/50 rounded-2xl p-1">
                             <button 

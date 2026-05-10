@@ -151,6 +151,8 @@ export interface CartItem extends Product {
   quantity: number;
   selectedSize?: ProductSize;
   selectedExtras?: { groupName: string; optionName: string; price: number }[];
+  notes?: string;
+  selected_modifiers?: any;
 }
 
 export interface Coupon {
@@ -306,8 +308,8 @@ export const useAuthStore = create<AuthState>()(
 
 interface CartState {
   items: CartItem[];
-  addItem: (product: Product, selectedSize?: ProductSize, selectedExtras?: { groupName: string; optionName: string; price: number }[], quantity?: number) => 'ok' | 'different_business';
-  clearAndAdd: (product: Product, selectedSize?: ProductSize, selectedExtras?: { groupName: string; optionName: string; price: number }[], quantity?: number) => void;
+  addItem: (product: Product, selectedSize?: ProductSize, selectedExtras?: { groupName: string; optionName: string; price: number }[], quantity?: number, notes?: string, selected_modifiers?: any) => 'ok' | 'different_business';
+  clearAndAdd: (product: Product, selectedSize?: ProductSize, selectedExtras?: { groupName: string; optionName: string; price: number }[], quantity?: number, notes?: string, selected_modifiers?: any) => void;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
   clearCart: () => void;
@@ -318,7 +320,7 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-      addItem: (product, selectedSize, selectedExtras, quantity = 1) => {
+      addItem: (product, selectedSize, selectedExtras, quantity = 1, notes = '', selected_modifiers = undefined) => {
         const items = get().items;
 
         // Block mixing products from different businesses
@@ -326,18 +328,22 @@ export const useCartStore = create<CartState>()(
           return 'different_business';
         }
 
-        // Generate a unique key for the item based on its selections
+        // Generate a unique key for the item based on its selections and notes
         const selectionsKey = JSON.stringify({ 
           id: product.id, 
           size: selectedSize?.name, 
-          extras: selectedExtras?.map(e => e.optionName).sort() 
+          extras: selectedExtras ? selectedExtras.map(e => e.optionName).sort() : [],
+          notes,
+          modifiers: selected_modifiers
         });
 
         const existingItemIndex = items.findIndex((i) => {
           const itemKey = JSON.stringify({ 
             id: i.id, 
             size: i.selectedSize?.name, 
-            extras: i.selectedExtras?.map(e => e.optionName).sort() 
+            extras: i.selectedExtras ? i.selectedExtras.map(e => e.optionName).sort() : [],
+            notes: i.notes || '',
+            modifiers: i.selected_modifiers
           });
           return itemKey === selectionsKey;
         });
@@ -357,13 +363,15 @@ export const useCartStore = create<CartState>()(
               price: basePrice + extrasPrice,
               quantity: quantity, 
               selectedSize, 
-              selectedExtras 
+              selectedExtras,
+              notes,
+              selected_modifiers
             }] 
           });
         }
         return 'ok';
       },
-      clearAndAdd: (product, selectedSize, selectedExtras, quantity = 1) => {
+      clearAndAdd: (product, selectedSize, selectedExtras, quantity = 1, notes = '', selected_modifiers = undefined) => {
         const basePrice = Number(selectedSize ? selectedSize.price : product.price);
         const extrasPrice = selectedExtras?.reduce((acc, e) => acc + Number(e.price), 0) || 0;
         const cartItemId = `${product.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -374,7 +382,9 @@ export const useCartStore = create<CartState>()(
             price: basePrice + extrasPrice,
             quantity,
             selectedSize,
-            selectedExtras
+            selectedExtras,
+            notes,
+            selected_modifiers
           }]
         });
       },

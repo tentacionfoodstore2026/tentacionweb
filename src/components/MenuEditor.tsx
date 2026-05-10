@@ -48,7 +48,14 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
     if (data) {
       setAllModifierGroups(data.map((g: any) => ({
         ...g,
-        options: g.modifier_options || [],
+        selection_type: g.type,
+        is_required: g.required,
+        min_selections: g.min_selections ?? 0,
+        max_selections: g.max_selections ?? 1,
+        options: (g.modifier_options || []).map((opt: any) => ({
+          ...opt,
+          extra_price: opt.price
+        })).sort((a: any, b: any) => a.sort_order - b.sort_order),
       })));
     }
   };
@@ -56,9 +63,9 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
   const fetchProductModifiers = async (productId: string) => {
     const { data } = await supabase
       .from('product_modifier_groups')
-      .select('group_id')
+      .select('modifier_group_id')
       .eq('product_id', productId);
-    setProductModifierIds(data ? data.map((r: any) => r.group_id) : []);
+    setProductModifierIds(data ? data.map((r: any) => r.modifier_group_id) : []);
   };
 
   const fetchMenuData = async () => {
@@ -187,31 +194,36 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
         extras: currentProduct.extras || []
       };
 
-      let productId = currentProduct.id;
-      if (productId) {
-        await supabase.from('products').update(prodData).eq('id', productId);
+      let finalProductId = currentProduct.id;
+      
+      // 1. Guardar/Actualizar Producto
+      if (finalProductId) {
+        const { error } = await supabase.from('products').update(prodData).eq('id', finalProductId);
+        if (error) throw error;
       } else {
-        const { data } = await supabase.from('products').insert(prodData).select().single();
-        productId = data?.id;
+        const { data, error } = await supabase.from('products').insert(prodData).select().single();
+        if (error) throw error;
+        finalProductId = data.id;
       }
 
-      // Save modifier group assignments
-      if (productId) {
-        await supabase.from('product_modifier_groups').delete().eq('product_id', productId);
+      // 2. Sincronizar Modificadores
+      if (finalProductId) {
+        await supabase.from('product_modifier_groups').delete().eq('product_id', finalProductId);
         if (productModifierIds.length > 0) {
-          // Sort the selected modifier IDs based on their global order in allModifierGroups
           const sortedModifierIds = [...productModifierIds].sort((a, b) => {
             const indexA = allModifierGroups.findIndex((g) => g.id === a);
             const indexB = allModifierGroups.findIndex((g) => g.id === b);
             return indexA - indexB;
           });
 
-          const rows = sortedModifierIds.map((gid, idx) => ({
-            product_id: productId,
-            group_id: gid,
-            sort_order: idx,
+          const pmgInserts = sortedModifierIds.map((groupId, idx) => ({
+            product_id: finalProductId,
+            modifier_group_id: groupId,
+            sort_order: idx
           }));
-          await supabase.from('product_modifier_groups').insert(rows);
+          
+          const { error: modError } = await supabase.from('product_modifier_groups').insert(pmgInserts);
+          if (modError) throw modError;
         }
       }
 
@@ -221,7 +233,7 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
       setProductModifierIds([]);
     } catch (error: any) {
       console.error('Error saving product:', error);
-      alert(`Error al guardar plato: ${error.message || 'Verifica que la categoría existe'}`);
+      alert(`Error al guardar plato: ${error.message || 'Verifica la conexión'}`);
     } finally {
       setIsSaving(false);
     }

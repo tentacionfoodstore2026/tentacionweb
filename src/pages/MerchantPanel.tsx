@@ -1244,19 +1244,70 @@ export const MerchantPanel = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-xs font-medium text-muted uppercase tracking-widest border-b border-surface pb-2">Productos</p>
-                  <div className="space-y-3">
-                    {selectedOrder.order_items?.map((item: any, idx: number) => (
-                      <div key={idx} className="flex justify-between items-center">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-surface rounded-2xl flex items-center justify-center text-xs font-medium text-muted">
-                            {item.quantity}x
+                  <p className="text-xs font-bold text-muted uppercase tracking-widest border-b border-surface pb-2">Artículos del Pedido</p>
+                  <div className="space-y-4">
+                    {selectedOrder.order_items?.map((item: any, idx: number) => {
+                      const mods = item.selected_modifiers;
+                      const modsIsObj = mods && !Array.isArray(mods) && typeof mods === 'object';
+                      const modsEntries: [string, any][] = modsIsObj ? Object.entries(mods) : [];
+                      const extras = Array.isArray(item.selected_extras) ? item.selected_extras : [];
+
+                      return (
+                        <div key={idx} className="bg-white rounded-2xl p-4 border border-surface shadow-sm">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center space-x-3">
+                              <span className="bg-primary text-dark w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shadow-sm">
+                                {item.quantity}
+                              </span>
+                              <span className="font-bold text-dark text-sm">{item.products?.name || 'Producto'}</span>
+                            </div>
+                            <span className="font-bold text-dark text-sm">${item.price * item.quantity}</span>
                           </div>
-                          <span className="font-medium text-dark">{item.products?.name || 'Producto'}</span>
+
+                          {/* Modifiers */}
+                          {modsEntries.length > 0 && (
+                            <div className="ml-11 space-y-1.5">
+                              {modsEntries.map(([groupName, options]) => (
+                                <div key={groupName} className="flex items-start gap-2">
+                                  <span className="text-[9px] font-bold text-muted uppercase tracking-tight pt-0.5 shrink-0 min-w-[70px]">{groupName}:</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {Array.isArray(options)
+                                      ? options.map((opt: any, i: number) => (
+                                          <span key={i} className="px-2 py-0.5 bg-primary/10 text-dark rounded-lg text-[10px] font-semibold">
+                                            {typeof opt === 'string' ? opt : opt.name || 'Opción'}
+                                          </span>
+                                        ))
+                                      : <span className="text-[10px] text-dark font-semibold">{String(options)}</span>
+                                    }
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Extras */}
+                          {extras.length > 0 && (
+                            <div className="ml-11 mt-1.5 flex items-start gap-2">
+                              <span className="text-[9px] font-bold text-muted uppercase tracking-tight pt-0.5 shrink-0 min-w-[70px]">Extras:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {extras.map((e: any, i: number) => (
+                                  <span key={i} className="px-2 py-0.5 bg-accent/10 text-dark rounded-lg text-[10px] font-semibold">
+                                    {e.optionName || e.name || String(e)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Notes */}
+                          {item.notes && (
+                            <div className="ml-11 mt-2 p-2 bg-amber-50 border border-amber-100 rounded-lg">
+                              <p className="text-[10px] text-amber-800 italic font-medium">"{item.notes}"</p>
+                            </div>
+                          )}
                         </div>
-                        <span className="font-medium text-dark">${item.price * item.quantity}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
