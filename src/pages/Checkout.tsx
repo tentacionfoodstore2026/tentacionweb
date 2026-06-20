@@ -30,6 +30,7 @@ export const Checkout = () => {
   const [appliedPromotion, setAppliedPromotion] = React.useState<any | null>(null);
   const [couponError, setCouponError] = React.useState('');
   const [business, setBusiness] = useState<any>(null);
+  const [savedOrderInfo, setSavedOrderInfo] = useState<any>(null);
 
   const businessId = items[0]?.businessId;
   const isStoreOpen = business ? isBusinessCurrentlyOpen(business.opening_hours, business.is_open) : true;
@@ -58,22 +59,61 @@ export const Checkout = () => {
       const { data: promoData } = await supabase.from('promotions').select('*').eq('id', claimedPromo.promoId).single();
 
       if (promoData) {
-        // If the promo is for a specific product, check if it's in the cart
-        // Assuming promoData might have a product_id field in a real scenario, but for now we'll just apply it to the total
-        setAppliedPromotion({ ...promoData, uniqueCode: code, value: promoData.discount_percentage, type: 'percentage' });
+        // Apply minimum purchase threshold check if present in promotion
+        if (promoData.min_purchase && total() < Number(promoData.min_purchase)) {
+          setCouponError(`Compra mínima requerida: $${Number(promoData.min_purchase).toLocaleString('es-CL')}`);
+          return;
+        }
+
+        // Apply category / product constraints check if present in promotion
+        const eligibleItems = items.filter(item => {
+          if (promoData.product_id && item.id !== promoData.product_id) return false;
+          if (promoData.category && promoData.category !== 'all' && (item.category || '').toLowerCase() !== promoData.category.toLowerCase()) return false;
+          return true;
+        });
+
+        if (eligibleItems.length === 0) {
+          setCouponError('Tu carrito no contiene productos elegibles para esta promoción.');
+          return;
+        }
+
+        setAppliedPromotion({ ...promoData, uniqueCode: code, value: promoData.value || promoData.discount_percentage, type: promoData.type || 'percentage' });
         setAppliedCoupon(null);
         setCouponCode('');
         return;
       }
     }
 
-    // 2. Check standard coupons
-    const coupon = coupons.find(c => c.code.toUpperCase() === code);
+    // 2. Check standard coupons in promotions table in Supabase
+    const { data: dbCoupon, error: dbCouponError } = await supabase
+      .from('promotions')
+      .select('*')
+      .eq('code', code)
+      .single();
 
-    if (!coupon) {
+    if (dbCouponError || !dbCoupon) {
       setCouponError('Código no válido');
       return;
     }
+
+    // Map dbCoupon to Coupon interface
+    const coupon: Coupon = {
+      id: dbCoupon.id,
+      code: dbCoupon.code,
+      type: (dbCoupon.type || 'percentage') as 'percentage' | 'fixed',
+      value: dbCoupon.value || dbCoupon.discount_percentage || 0,
+      usageCount: dbCoupon.usage_count || 0,
+      status: dbCoupon.is_active ? 'active' : 'inactive',
+      businessId: dbCoupon.business_id,
+      category: dbCoupon.category || 'all',
+      productId: dbCoupon.product_id || undefined,
+      minPurchase: Number(dbCoupon.min_purchase || 0),
+      description: dbCoupon.description || dbCoupon.title || '',
+      startDate: dbCoupon.start_date || dbCoupon.created_at?.split('T')[0] || '',
+      endDate: dbCoupon.end_date || dbCoupon.valid_until?.split('T')[0] || '',
+      startTime: dbCoupon.start_time?.substring(0, 5) || '00:00',
+      endTime: dbCoupon.end_time?.substring(0, 5) || '23:59',
+    };
 
     if (coupon.status !== 'active') {
       setCouponError('Este cupón ya no está activo');
@@ -83,6 +123,38 @@ export const Checkout = () => {
     // Check business restriction
     if (coupon.businessId !== 'all' && coupon.businessId !== businessId) {
       setCouponError('Este cupón no es válido para este comercio');
+      return;
+    }
+
+    // Check minimum purchase threshold
+    if (coupon.minPurchase && total() < coupon.minPurchase) {
+      setCouponError(`Compra mínima requerida: $${coupon.minPurchase.toLocaleString('es-CL')}`);
+      return;
+    }
+
+    // Check category / product constraints validation to prevent cross-product misuse
+    const eligibleItems = items.filter(item => {
+      // product constraint
+      if (coupon.productId && coupon.productId !== 'all' && item.id !== coupon.productId) {
+        return false;
+      }
+      // category constraint
+      if (coupon.category && coupon.category !== 'all') {
+        const itemCat = (item.category || '').toLowerCase();
+        const coupCat = coupon.category.toLowerCase();
+        if (itemCat !== coupCat) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (eligibleItems.length === 0) {
+      if (coupon.productId && coupon.productId !== 'all') {
+        setCouponError('Este cupón solo es válido para un producto específico que no está en tu carrito.');
+      } else {
+        setCouponError(`Este cupón solo es válido para productos de la categoría "${coupon.category}".`);
+      }
       return;
     }
 
@@ -108,24 +180,33 @@ export const Checkout = () => {
 
   const calculateDiscount = () => {
     if (appliedPromotion) {
+      const eligibleItems = items.filter(item => {
+        if (appliedPromotion.product_id && item.id !== appliedPromotion.product_id) return false;
+        if (appliedPromotion.category && appliedPromotion.category !== 'all' && (item.category || '').toLowerCase() !== appliedPromotion.category.toLowerCase()) return false;
+        return true;
+      });
+      if (eligibleItems.length === 0) return 0;
+      const eligibleTotal = eligibleItems.reduce((acc, item) => acc + (Number(item.price) * Number(item.quantity)), 0);
+
       if (appliedPromotion.type === 'percentage') {
-        // If promo is for a specific product, only discount that product
-        if (appliedPromotion.productId) {
-          const item = items.find(i => i.id === appliedPromotion.productId);
-          if (item) {
-            return Math.round((item.price * item.quantity * appliedPromotion.value) / 100);
-          }
-        }
-        return Math.round((total() * appliedPromotion.value) / 100);
+        return Math.round((eligibleTotal * (appliedPromotion.value || appliedPromotion.discount_percentage || 0)) / 100);
       }
-      return appliedPromotion.value || 0;
+      return Math.min(appliedPromotion.value || 0, eligibleTotal);
     }
 
     if (!appliedCoupon) return 0;
+    const eligibleItems = items.filter(item => {
+      if (appliedCoupon.productId && item.id !== appliedCoupon.productId) return false;
+      if (appliedCoupon.category && appliedCoupon.category !== 'all' && (item.category || '').toLowerCase() !== appliedCoupon.category.toLowerCase()) return false;
+      return true;
+    });
+    if (eligibleItems.length === 0) return 0;
+    const eligibleTotal = eligibleItems.reduce((acc, item) => acc + (Number(item.price) * Number(item.quantity)), 0);
+
     if (appliedCoupon.type === 'percentage') {
-      return Math.round((total() * appliedCoupon.value) / 100);
+      return Math.round((eligibleTotal * appliedCoupon.value) / 100);
     }
-    return appliedCoupon.value;
+    return Math.min(appliedCoupon.value, eligibleTotal);
   };
 
   const deliveryFee = business?.delivery_fee || 0;
@@ -178,7 +259,10 @@ export const Checkout = () => {
           delivery_address: formData.address,
           delivery_reference: formData.reference,
           notes: formData.notes,
-          payment_method: formData.paymentMethod
+          payment_method: formData.paymentMethod,
+          coupon_id: appliedCoupon ? appliedCoupon.id : (appliedPromotion ? appliedPromotion.id : null),
+          discount_amount: calculateDiscount(),
+          original_total: total()
         })
         .select()
         .single();
@@ -215,6 +299,18 @@ export const Checkout = () => {
         console.error('[Checkout] Error saving order items:', itemsError.message, itemsError.details, itemsError.hint);
       }
 
+      // 2.5 Log coupon usage in the audit table if applicable
+      if (appliedCoupon || appliedPromotion) {
+        const couponId = appliedCoupon ? appliedCoupon.id : appliedPromotion.id;
+        const discountAmt = calculateDiscount();
+        await supabase.from('coupon_redemptions').insert({
+          coupon_id: couponId,
+          user_id: user.id,
+          order_id: orderData.id,
+          discount_amount: discountAmt
+        });
+      }
+
       // 3. Save order locally
       useOrderStore.getState().addOrder({
         id: orderData.id,
@@ -229,12 +325,29 @@ export const Checkout = () => {
         })),
         total: finalTotal,
         status: 'pending',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        coupon_id: appliedCoupon ? appliedCoupon.id : (appliedPromotion ? appliedPromotion.id : undefined),
+        discount_amount: calculateDiscount(),
+        original_total: total()
       });
 
       if (appliedPromotion?.uniqueCode) {
         usePromotionCode(appliedPromotion.uniqueCode);
       }
+
+      const currentItems = [...items];
+      const currentFinalTotal = finalTotal;
+      const currentDiscountText = appliedPromotion ? `\nDescuento (${appliedPromotion.code}): -$${calculateDiscount()}` : appliedCoupon ? `\nDescuento (${appliedCoupon.code}): -$${calculateDiscount()}` : '';
+      const currentDeliveryFee = deliveryFee;
+      
+      setSavedOrderInfo({
+        items: currentItems,
+        finalTotal: currentFinalTotal,
+        discountText: currentDiscountText,
+        deliveryFee: currentDeliveryFee
+      });
+
+      clearCart();
 
       setOrderId(orderData.id.substring(0, 8).toUpperCase());
       setStep('success');
@@ -246,9 +359,9 @@ export const Checkout = () => {
   };
 
   const handleWhatsAppRedirect = () => {
-    if (!business) return;
+    if (!business || !savedOrderInfo) return;
 
-    const itemsText = items.map(i => {
+    const itemsText = savedOrderInfo.items.map((i: any) => {
       let text = `- ${i.name} x ${i.quantity} ($${i.price * i.quantity})`;
       
       // Modifiers
@@ -275,14 +388,12 @@ export const Checkout = () => {
       return text;
     }).join('\n');
 
-    const discountText = appliedPromotion ? `\nDescuento (${appliedPromotion.code}): -$${calculateDiscount()}` : appliedCoupon ? `\nDescuento (${appliedCoupon.code}): -$${calculateDiscount()}` : '';
-    const deliveryText = deliveryFee > 0 ? `\nEnvío: $${deliveryFee}` : '\nEnvío: Gratis';
-    const message = `Hola ${business.name}, quiero hacer un pedido:\n\nOrden: #${orderId}\n\n${itemsText}${discountText}${deliveryText}\n\nTotal: $${finalTotal}\n\nDatos de entrega:\nNombre: ${formData.name}\nEmail: ${formData.email}\nDirección: ${formData.address}\nReferencia: ${formData.reference}\nTeléfono: ${formData.phone}\nMétodo de Pago: ${formData.paymentMethod === 'cash' ? 'Efectivo' : 'Debito / Credito'}\nNotas: ${formData.notes || 'Sin notas'}`;
+    const deliveryText = savedOrderInfo.deliveryFee > 0 ? `\nEnvío: $${savedOrderInfo.deliveryFee}` : '\nEnvío: Gratis';
+    const message = `Hola ${business.name}, quiero hacer un pedido:\n\nOrden: #${orderId}\n\n${itemsText}${savedOrderInfo.discountText}${deliveryText}\n\nTotal: $${savedOrderInfo.finalTotal}\n\nDatos de entrega:\nNombre: ${formData.name}\nEmail: ${formData.email}\nDirección: ${formData.address}\nReferencia: ${formData.reference}\nTeléfono: ${formData.phone}\nMétodo de Pago: ${formData.paymentMethod === 'cash' ? 'Efectivo' : 'Debito / Credito'}\nNotas: ${formData.notes || 'Sin notas'}`;
     
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${business.whatsapp}?text=${encodedMessage}`, '_blank');
     
-    clearCart();
     navigate('/');
   };
 
@@ -306,7 +417,7 @@ export const Checkout = () => {
           <div className="bg-surface/50 rounded-2xl p-4 mb-8 border border-surface text-left">
             <h4 className="text-xs font-bold text-muted uppercase tracking-widest mb-3 border-b border-surface pb-2">Resumen de tu pedido</h4>
             <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-              {items.map((item, idx) => (
+              {savedOrderInfo?.items?.map((item: any, idx: number) => (
                 <div key={idx} className="border-b border-surface last:border-0 pb-3 last:pb-0">
                   <div className="flex justify-between items-start">
                     <span className="font-bold text-dark text-sm">{item.quantity}x {item.name}</span>
@@ -341,7 +452,7 @@ export const Checkout = () => {
             </div>
             <div className="mt-4 pt-4 border-t border-surface flex justify-between items-center">
               <span className="font-bold text-dark uppercase text-xs">Total a pagar</span>
-              <span className="font-bold text-accent text-lg">${finalTotal}</span>
+              <span className="font-bold text-accent text-lg">${savedOrderInfo?.finalTotal}</span>
             </div>
           </div>
           
@@ -355,7 +466,6 @@ export const Checkout = () => {
             </button>
             <button 
               onClick={() => {
-                clearCart();
                 navigate('/');
               }}
               className="w-full bg-dark/5 text-muted py-4 rounded-2xl font-medium hover:bg-dark/10 transition-all"
@@ -607,17 +717,17 @@ export const Checkout = () => {
                 {/* Coupon Input */}
                 {!appliedCoupon && !appliedPromotion ? (
                   <div className="pt-4">
-                    <div className="flex space-x-2">
+                    <div className="flex items-center space-x-2">
                       <input 
                         type="text"
                         value={couponCode}
                         onChange={e => setCouponCode(e.target.value)}
                         placeholder="Código de cupón"
-                        className="flex-1 bg-surface border border-surface rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all placeholder:text-muted"
+                        className="flex-1 min-w-0 bg-gray-50/80 border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all placeholder:text-muted/60 text-dark"
                       />
                       <button 
                         onClick={handleApplyCoupon}
-                        className="bg-primary hover:bg-accent text-dark px-4 py-2 rounded-2xl text-sm font-medium transition-all"
+                        className="bg-primary hover:bg-accent text-dark px-4 py-2.5 rounded-2xl text-sm font-medium transition-all shrink-0"
                       >
                         Aplicar
                       </button>

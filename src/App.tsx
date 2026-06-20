@@ -122,7 +122,7 @@ const AuthHandler = () => {
           supabase.from('profiles').select('role').eq('id', session.user.id).single().then(({ data }) => {
             const isSuperAdmin = session.user.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
             if (data?.role === 'comercio') navigate('/merchant');
-            else if (data?.role === 'admin' || data?.role === 'super_admin' || data?.role === 'cocina' || isSuperAdmin) navigate('/admin');
+            else if (data?.role === 'admin' || data?.role === 'super_admin' || data?.role === 'cocina' || data?.role === 'cajero' || isSuperAdmin) navigate('/admin');
             else if (data?.role === 'repartidor') navigate('/delivery');
             else navigate('/');
           });
@@ -278,7 +278,7 @@ export default function App() {
             } />
 
             <Route path="/admin" element={
-              <PrivateRoute role={['admin', 'cocina']}>
+              <PrivateRoute role={['admin', 'cocina', 'cajero']}>
                 <AdminPanel />
               </PrivateRoute>
             } />

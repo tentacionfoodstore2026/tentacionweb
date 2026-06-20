@@ -175,18 +175,33 @@ export const MerchantPanel = () => {
 
   const handleSaveCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!business) return;
+    if (!business || !currentCoupon) return;
+
+    const couponPayload = {
+      title: currentCoupon.description || 'Promoción de Comercio',
+      description: currentCoupon.description,
+      discount_percentage: currentCoupon.type === 'percentage' ? currentCoupon.value : 0,
+      code: currentCoupon.code,
+      valid_until: currentCoupon.endDate || new Date().toISOString(),
+      type: currentCoupon.type || 'percentage',
+      value: currentCoupon.value || 0,
+      business_id: business.id,
+      category: currentCoupon.category || 'all',
+      product_id: currentCoupon.productId === 'all' ? null : currentCoupon.productId,
+      min_purchase: currentCoupon.minPurchase || 0,
+      start_date: currentCoupon.startDate || null,
+      end_date: currentCoupon.endDate || null,
+      start_time: currentCoupon.startTime || '00:00',
+      end_time: currentCoupon.endTime || '23:59',
+      status: currentCoupon.status || 'active',
+      is_active: currentCoupon.status === 'active',
+      internal_notes: currentCoupon.internal_notes || ''
+    };
 
     if (currentCoupon?.id) {
       const { data, error } = await supabase
         .from('promotions')
-        .update({
-          title: currentCoupon.description,
-          description: currentCoupon.description,
-          discount_percentage: currentCoupon.value,
-          code: currentCoupon.code,
-          valid_until: currentCoupon.endDate
-        })
+        .update(couponPayload)
         .eq('id', currentCoupon.id)
         .select()
         .single();
@@ -197,14 +212,7 @@ export const MerchantPanel = () => {
     } else {
       const { data, error } = await supabase
         .from('promotions')
-        .insert({
-          business_id: business.id,
-          title: currentCoupon?.description || 'Promoción',
-          description: currentCoupon?.description,
-          discount_percentage: currentCoupon?.value,
-          code: currentCoupon?.code,
-          valid_until: currentCoupon?.endDate || new Date().toISOString()
-        })
+        .insert(couponPayload)
         .select()
         .single();
         
@@ -1134,6 +1142,46 @@ export const MerchantPanel = () => {
                           className="w-full bg-surface border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium transition-all" 
                         />
                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-[10px] font-medium text-muted uppercase tracking-[0.2em] mb-2">Compra Mínima ($)</label>
+                        <input 
+                          type="number" 
+                          placeholder="0"
+                          value={currentCoupon?.minPurchase || ''}
+                          onChange={e => setCurrentCoupon({ ...currentCoupon, minPurchase: Number(e.target.value) })}
+                          className="w-full bg-surface border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium transition-all" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-muted uppercase tracking-[0.2em] mb-2">Categoría Elegible</label>
+                        <select 
+                          value={currentCoupon?.category || 'all'}
+                          onChange={e => setCurrentCoupon({ ...currentCoupon, category: e.target.value })}
+                          className="w-full bg-surface border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium transition-all"
+                        >
+                          <option value="all">Todas las Categorías</option>
+                          {Array.from(new Set(products.map((p: any) => p.category).filter(Boolean))).map((cat: any) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted uppercase tracking-[0.2em] mb-2">Producto Específico</label>
+                      <select 
+                        value={currentCoupon?.productId || 'all'}
+                        onChange={e => setCurrentCoupon({ ...currentCoupon, productId: e.target.value })}
+                        className="w-full bg-surface border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium transition-all"
+                      >
+                        <option value="all">Todos los Productos</option>
+                        {products.map((p: any) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>

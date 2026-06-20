@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Store, ShieldCheck, Search, MoreVertical, CheckCircle, XCircle, Trash2, Edit, Filter, Save, X, Image as ImageIcon, Clock, Truck, MapPin, Phone, Settings, Tag, Plus, Printer, Menu as MenuIcon, Calendar, CreditCard, Hash, User, Star, Mail, Info, ClipboardList, UtensilsCrossed, Bell, Send, DollarSign, TrendingUp, ShoppingBag, ChefHat, LayoutDashboard, Eye, EyeOff, Shield, Database, Upload, Sun, Moon, FileSpreadsheet, FileText, Download, FileUp, FileDown, ShieldAlert } from 'lucide-react';
+import { Users, Store, ShieldCheck, Search, MoreVertical, CheckCircle, XCircle, Trash2, Edit, Filter, Save, X, Image as ImageIcon, Clock, Truck, MapPin, Phone, Settings, Tag, Plus, Printer, Menu as MenuIcon, Calendar, CreditCard, Hash, User, Star, Mail, Info, ClipboardList, UtensilsCrossed, Bell, Send, DollarSign, TrendingUp, ShoppingBag, ChefHat, LayoutDashboard, Eye, EyeOff, Shield, Database, Upload, Sun, Moon, FileSpreadsheet, FileText, Download, FileUp, FileDown, ShieldAlert, Camera } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
@@ -206,6 +207,15 @@ const ROLE_DEFINITIONS = [
     color: 'bg-red-50 border-red-100 text-red-700',
     activeColor: 'bg-red-600 border-red-600 text-white',
     badge: 'bg-red-100 text-red-700',
+  },
+  {
+    id: 'cajero',
+    label: 'Cajero/a',
+    description: 'Acceso al panel de canje de tarjetas de fidelidad en local físico.',
+    icon: '💰',
+    color: 'bg-teal-50 border-teal-100 text-teal-700',
+    activeColor: 'bg-teal-600 border-teal-600 text-white',
+    badge: 'bg-teal-100 text-teal-700',
   },
 ];
 
@@ -1061,12 +1071,275 @@ const DashboardContent: React.FC<{
   );
 };
 
+// ─────────────────────────────────────────────────────
+// CajeroPanel - Panel de Canje de Fidelidad
+// ─────────────────────────────────────────────────────
+const CajeroPanel: React.FC<{ currentUser: any }> = ({ currentUser }) => {
+  const [scanInput, setScanInput] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    const { data } = await supabase
+      .from('loyalty_redemptions')
+      .select('*, cashier:profiles!loyalty_redemptions_cashier_id_fkey(name), user:profiles!loyalty_redemptions_user_id_fkey(name, email), business:businesses(name)')
+      .order('redeemed_at', { ascending: false })
+      .limit(20);
+    if (data) setHistory(data);
+    setLoadingHistory(false);
+  };
+
+  const handleRedeemWithToken = async (token: string) => {
+    if (!token.trim()) return;
+    setProcessing(true);
+    setResult(null);
+
+    try {
+      let cleanToken = token.trim();
+      // Try to parse if it's a JSON QR
+      try {
+        const parsed = JSON.parse(cleanToken);
+        if (parsed.token) cleanToken = parsed.token;
+      } catch {}
+
+      const { data, error } = await supabase.rpc('redeem_loyalty_reward', {
+        p_reward_token: cleanToken,
+        p_cashier_id: currentUser?.id,
+        p_business_id: currentUser?.businessId || null,
+      });
+
+      if (error) throw new Error(error.message);
+      const res = data as any;
+
+      if (res.success) {
+        setResult({ success: true, message: res.message });
+        setScanInput('');
+        fetchHistory();
+      } else {
+        setResult({ success: false, message: res.error });
+      }
+    } catch (err: any) {
+      setResult({ success: false, message: err.message || 'Error al procesar el canje.' });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleRedeem = () => {
+    handleRedeemWithToken(scanInput);
+  };
+
+  useEffect(() => {
+    let html5QrCode: Html5Qrcode | null = null;
+    if (isScanning) {
+      html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: (width, height) => {
+            const size = Math.min(width, height) * 0.7;
+            return { width: size, height: size };
+          }
+        },
+        (decodedText) => {
+          setIsScanning(false);
+          handleRedeemWithToken(decodedText);
+        },
+        () => {
+          // Silent failure on scanning attempts (expected background noise)
+        }
+      ).catch(err => {
+        console.error("Error al iniciar el scanner:", err);
+      });
+    }
+
+    return () => {
+      if (html5QrCode) {
+        if (html5QrCode.isScanning) {
+          html5QrCode.stop().then(() => {
+            html5QrCode?.clear();
+          }).catch(err => console.error("Error al detener el scanner:", err));
+        } else {
+          try {
+            html5QrCode.clear();
+          } catch {}
+        }
+      }
+    };
+  }, [isScanning]);
+
+  return (
+    <div className="space-y-8 max-w-3xl">
+
+      {/* QR Scanner Card */}
+      <div className="bg-white rounded-3xl border border-surface shadow-2xl shadow-dark/5 p-8">
+        <div className="flex items-center space-x-4 mb-8">
+          <div className="bg-amber-100 p-4 rounded-2xl">
+            <Star className="text-amber-500" size={28} fill="currentColor" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-dark">Validar Premio de Fidelidad</h2>
+            <p className="text-sm text-muted">Escanea o ingresa el código QR del cliente para canjear su recompensa.</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Código de Canje</label>
+          <div className="flex space-x-3">
+            <input
+              type="text"
+              value={scanInput}
+              onChange={e => { setScanInput(e.target.value); setResult(null); }}
+              onKeyDown={e => e.key === 'Enter' && handleRedeem()}
+              placeholder='Escanea el QR o pega el código aquí...'
+              className="flex-1 bg-surface border-2 border-transparent rounded-2xl py-4 px-5 text-sm font-medium focus:outline-none focus:border-primary/50 focus:bg-white transition-all"
+              autoFocus
+            />
+            <button
+              onClick={handleRedeem}
+              disabled={processing || !scanInput.trim()}
+              className="bg-primary text-dark px-8 py-4 rounded-2xl font-bold hover:bg-accent transition-all disabled:opacity-40 flex items-center space-x-2 shadow-xl shadow-primary/20"
+            >
+              {processing ? (
+                <div className="w-5 h-5 border-2 border-dark border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <CheckCircle size={20} />
+              )}
+              <span>{processing ? 'Procesando...' : 'Canjear'}</span>
+            </button>
+          </div>
+
+          {/* Camera Viewfinder */}
+          <AnimatePresence>
+            {isScanning && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden border border-surface rounded-2xl bg-dark/5 p-4 flex flex-col items-center mt-4"
+              >
+                <div className="relative w-full max-w-sm rounded-xl overflow-hidden shadow-inner border bg-black aspect-square">
+                  <div id="reader" className="w-full h-full" />
+                  <div className="absolute inset-0 border-2 border-primary/50 pointer-events-none flex items-center justify-center">
+                    <div className="w-48 h-48 border-2 border-dashed border-white rounded-lg animate-pulse" />
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsScanning(false)}
+                  className="mt-4 bg-red-100 text-red-600 px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-red-200 transition-all flex items-center space-x-2"
+                >
+                  <XCircle size={16} />
+                  <span>Cancelar Escaneo</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="flex justify-between items-center pt-2">
+            <span className="text-[10px] text-muted font-medium">O usa la cámara del dispositivo para mayor rapidez:</span>
+            <button
+              onClick={() => {
+                setResult(null);
+                setIsScanning(!isScanning);
+              }}
+              className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center space-x-2 transition-all shadow-md ${
+                isScanning 
+                  ? 'bg-red-500 text-white hover:bg-red-600 shadow-red-500/10'
+                  : 'bg-primary/10 text-accent hover:bg-primary/20 shadow-primary/5'
+              }`}
+            >
+              {isScanning ? (
+                <>
+                  <XCircle size={16} />
+                  <span>Apagar Cámara</span>
+                </>
+              ) : (
+                <>
+                  <Camera size={16} />
+                  <span>Escanear con Cámara</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {result && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`p-5 rounded-2xl border-2 flex items-center space-x-4 mt-4 ${
+                result.success
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : 'bg-red-50 border-red-200 text-red-800'
+              }`}
+            >
+              {result.success ? <CheckCircle size={24} className="text-green-600 shrink-0" /> : <XCircle size={24} className="text-red-500 shrink-0" />}
+              <div>
+                <p className="font-bold text-sm">{result.success ? '¡Canje Exitoso!' : 'Error en el Canje'}</p>
+                <p className="text-sm mt-1">{result.message}</p>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </div>
+
+      {/* Redemption History */}
+      <div className="bg-white rounded-3xl border border-surface shadow-2xl shadow-dark/5 p-8">
+        <h3 className="text-lg font-bold text-dark mb-6 flex items-center space-x-3">
+          <ClipboardList size={20} className="text-primary" />
+          <span>Historial de Canjes</span>
+        </h3>
+
+        {loadingHistory ? (
+          <div className="text-center py-10 text-muted">Cargando historial...</div>
+        ) : history.length === 0 ? (
+          <div className="text-center py-10 text-muted">
+            <Star size={40} className="mx-auto mb-3 text-muted/30" />
+            <p>No hay canjes registrados aún.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {history.map((item) => (
+              <div key={item.id} className="flex items-center justify-between p-4 bg-surface/50 rounded-2xl hover:bg-surface transition-colors">
+                <div className="flex items-center space-x-4">
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 font-bold text-sm">
+                    {item.user?.name?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-dark">{item.user?.name || 'Cliente'}</p>
+                    <p className="text-xs text-muted">{item.user?.email}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-green-600">✓ Canjeado</p>
+                  <p className="text-[10px] text-muted">{item.cashier?.name || 'Cajero'} · {item.business?.name || 'Local'}</p>
+                  <p className="text-[10px] text-muted/60">{new Date(item.redeemed_at).toLocaleString('es-CL')}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+};
+
 export const AdminPanel = () => {
   const { user: currentUser } = useAuthStore();
   const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
 
   const getDefaultTab = () => {
     if (currentUser?.role === 'cocina') return 'kitchen';
+    if (currentUser?.role === 'cajero') return 'cajero';
     const saved = localStorage.getItem('adminActiveTab');
     if (saved) return saved;
     return 'dashboard';
@@ -1130,6 +1403,8 @@ export const AdminPanel = () => {
   const [couponUsage, setCouponUsage] = useState<any[]>([]);
   const [loadingUsage, setLoadingUsage] = useState(false);
   const [selectedCouponForUsage, setSelectedCouponForUsage] = useState<string | null>(null);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [allCategories, setAllCategories] = useState<string[]>([]);
 
   // Kitchen / Order Details Modal
   const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
@@ -1177,9 +1452,55 @@ export const AdminPanel = () => {
       const { data: userData } = await supabase.from('profiles').select('*');
       if (userData) setUsers(userData);
 
+      // Fetch Driver Profiles
+      const { data: dpData } = await supabase.from('driver_profiles').select('*');
+      
+      // Filter profiles that are repartidores
+      const driverProfiles = userData ? userData.filter((u: any) => u.role === 'repartidor') : [];
+      
+      const mappedDrivers = driverProfiles.map((profile: any) => {
+        const dp = dpData ? dpData.find((d: any) => d.id === profile.id) : null;
+        return {
+          id: profile.id,
+          name: profile.name || 'Conductor',
+          email: profile.email || '',
+          phone: profile.phone || dp?.phone || '',
+          dni: dp?.dni || '',
+          address: dp?.address || '',
+          avatar: profile.avatar_url || 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
+          status: (profile.status === 'blocked' ? 'blocked' : (profile.status === 'inactive' ? 'inactive' : 'active')) as "active" | "inactive" | "blocked",
+          rating: dp?.rating || 5.0,
+          totalDeliveries: dp?.trips || 0,
+          licenseNumber: dp?.license_number || '',
+          licenseType: dp?.license_type || '',
+          licenseExpiry: dp?.license_expiry || '',
+          vehicle: {
+            type: (dp?.vehicle_type?.toLowerCase() as any) || 'moto',
+            model: dp?.vehicle_model || '',
+            plate: dp?.vehicle_plate || '',
+            color: dp?.vehicle_color || '',
+            year: dp?.vehicle_year || '',
+            insurancePolicy: dp?.vehicle_insurance_policy || '',
+            insuranceExpiry: dp?.vehicle_insurance_expiry || ''
+          },
+          balance: Number(dp?.balance) || 0,
+          joinedAt: profile.created_at || new Date().toISOString()
+        };
+      });
+      
+      useDriverStore.setState({ drivers: mappedDrivers });
+
       // Fetch Promotions
       const { data: promoData } = await supabase.from('promotions').select('*');
       if (promoData) setCoupons(promoData);
+
+      // Fetch Products & Categories
+      const { data: prodData } = await supabase.from('products').select('*');
+      if (prodData) {
+        setAllProducts(prodData);
+        const cats = Array.from(new Set(prodData.map((p: any) => p.category).filter(Boolean)));
+        setAllCategories(cats);
+      }
 
       // Fetch Orders — use left join to get profile & business info
       const { data: orderData, error: orderError } = await supabase
@@ -1590,6 +1911,25 @@ export const AdminPanel = () => {
     }
   };
 
+  const deleteUser = async (id: string) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar este usuario? Esta acción es irreversible.')) {
+      return;
+    }
+    
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting user:', error);
+      alert('Error al eliminar el usuario de la base de datos.');
+    } else {
+      setUsers(users.filter(u => u.id !== id));
+      alert('Usuario eliminado correctamente.');
+    }
+  };
+
   const exportUsersToExcel = () => {
     const headers = ['Nombre', 'Email', 'Estado', 'Rol'];
     const csvRows = filteredUsers.map(u => [
@@ -1612,33 +1952,218 @@ export const AdminPanel = () => {
 
   const handleSaveDriver = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!currentDriver?.name) return;
-
-    if (currentDriver.id) {
-      updateDriver(currentDriver as Driver);
-    } else {
-      const newDriver: Driver = {
-        ...currentDriver as Driver,
-        id: `drv-${Math.random().toString(36).substr(2, 9)}`,
-        status: 'active',
-        rating: 5.0,
-        totalDeliveries: 0,
-        balance: 0,
-        joinedAt: new Date().toISOString(),
-        vehicle: currentDriver.vehicle || {
-          type: 'moto',
-          model: '',
-          plate: '',
-          color: '',
-          year: '',
-          insurancePolicy: '',
-          insuranceExpiry: ''
-        } as any
-      } as Driver;
-      addDriver(newDriver);
+    if (!currentDriver?.name) {
+      alert('El nombre es obligatorio.');
+      return;
     }
-    setIsEditingDriver(false);
-    setCurrentDriver(null);
+    if (!currentDriver?.email) {
+      alert('El correo electrónico es obligatorio.');
+      return;
+    }
+
+    try {
+      if (currentDriver.id) {
+        // ACTUALIZAR CONDUCTOR EXISTENTE
+        // 1. Actualizar perfil principal
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            name: currentDriver.name,
+            phone: currentDriver.phone,
+            status: currentDriver.status === 'blocked' ? 'blocked' : (currentDriver.status === 'inactive' ? 'inactive' : 'active')
+          })
+          .eq('id', currentDriver.id);
+
+        if (profileError) throw profileError;
+
+        // 2. Actualizar/Insertar perfil de conductor detallado en driver_profiles
+        const { error: dpError } = await supabase
+          .from('driver_profiles')
+          .upsert({
+            id: currentDriver.id,
+            phone: currentDriver.phone,
+            vehicle_type: currentDriver.vehicle?.type || 'Moto',
+            vehicle_model: currentDriver.vehicle?.model || '',
+            vehicle_plate: currentDriver.vehicle?.plate || '',
+            vehicle_color: currentDriver.vehicle?.color || '',
+            vehicle_year: currentDriver.vehicle?.year || '',
+            vehicle_insurance_policy: currentDriver.vehicle?.insurancePolicy || '',
+            vehicle_insurance_expiry: currentDriver.vehicle?.insuranceExpiry || '',
+            license_number: currentDriver.licenseNumber || '',
+            license_type: currentDriver.licenseType || '',
+            license_expiry: currentDriver.licenseExpiry || '',
+            dni: currentDriver.dni || '',
+            address: currentDriver.address || '',
+            balance: currentDriver.balance || 0,
+            rating: currentDriver.rating || 5.0,
+            trips: currentDriver.totalDeliveries || 0
+          });
+
+        if (dpError) throw dpError;
+
+        // Actualizar Zustand local
+        updateDriver(currentDriver as Driver);
+        alert('Conductor actualizado con éxito en Supabase.');
+      } else {
+        // CREAR NUEVO CONDUCTOR EN SUPABASE AUTH Y DB
+        const password = (currentDriver as any).password || 'Tentacion2026!';
+        if (password.length < 6) {
+          alert('La contraseña debe tener al menos 6 caracteres.');
+          return;
+        }
+
+        // Crear cliente temporal sin guardar sesión para no cerrar sesión del admin
+        const { createClient } = await import('@supabase/supabase-js');
+        const tempSupabase = createClient(
+          (import.meta as any).env.VITE_SUPABASE_URL,
+          (import.meta as any).env.VITE_SUPABASE_ANON_KEY,
+          {
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false,
+              detectSessionInUrl: false
+            }
+          }
+        );
+
+        // 1. Crear el usuario en Supabase Auth
+        const { data: authData, error: authError } = await tempSupabase.auth.signUp({
+          email: currentDriver.email!,
+          password: password,
+          options: {
+            data: {
+              name: currentDriver.name,
+              phone: currentDriver.phone,
+              role: 'driver' // mapped to 'repartidor' by handle_new_user trigger
+            }
+          }
+        });
+
+        if (authError) throw authError;
+
+        const newUserId = authData.user?.id;
+        if (!newUserId) {
+          throw new Error('No se pudo obtener el ID del nuevo usuario de Supabase.');
+        }
+
+        // 2. Forzar la creación de la entrada en profiles y driver_profiles
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: newUserId,
+            name: currentDriver.name,
+            email: currentDriver.email,
+            role: 'repartidor',
+            phone: currentDriver.phone,
+            status: 'active'
+          });
+        if (profileError) console.error('Aviso: perfil principal ya creado o error:', profileError);
+
+        const { error: dpError } = await supabase
+          .from('driver_profiles')
+          .upsert({
+            id: newUserId,
+            phone: currentDriver.phone,
+            vehicle_type: currentDriver.vehicle?.type || 'Moto',
+            vehicle_model: currentDriver.vehicle?.model || '',
+            vehicle_plate: currentDriver.vehicle?.plate || '',
+            vehicle_color: currentDriver.vehicle?.color || '',
+            vehicle_year: currentDriver.vehicle?.year || '',
+            vehicle_insurance_policy: currentDriver.vehicle?.insurancePolicy || '',
+            vehicle_insurance_expiry: currentDriver.vehicle?.insuranceExpiry || '',
+            license_number: currentDriver.licenseNumber || '',
+            license_type: currentDriver.licenseType || '',
+            license_expiry: currentDriver.licenseExpiry || '',
+            dni: currentDriver.dni || '',
+            address: currentDriver.address || '',
+            balance: 0,
+            rating: 5.0,
+            trips: 0
+          });
+        if (dpError) throw dpError;
+
+        const newDriver: Driver = {
+          ...currentDriver as Driver,
+          id: newUserId,
+          status: 'active',
+          rating: 5.0,
+          totalDeliveries: 0,
+          balance: 0,
+          joinedAt: new Date().toISOString(),
+          vehicle: currentDriver.vehicle || {
+            type: 'moto',
+            model: '',
+            plate: '',
+            color: '',
+            year: '',
+            insurancePolicy: '',
+            insuranceExpiry: ''
+          } as any
+        } as Driver;
+
+        addDriver(newDriver);
+        alert(`Conductor '${currentDriver.name}' registrado exitosamente en Supabase con contraseña '${password}'.`);
+      }
+      setIsEditingDriver(false);
+      setCurrentDriver(null);
+    } catch (err: any) {
+      console.error('Error saving driver to Supabase:', err);
+      alert('Error al guardar el conductor: ' + (err.message || err));
+    }
+  };
+
+  const handleToggleDriverStatus = async (driver: Driver) => {
+    const newStatus = driver.status === 'active' ? 'inactive' : 'active';
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status: newStatus })
+        .eq('id', driver.id);
+      if (error) throw error;
+      updateDriver({ ...driver, status: newStatus });
+      alert(`Estado del conductor cambiado a ${newStatus === 'active' ? 'Activo' : 'Inactivo'}`);
+    } catch (err: any) {
+      alert('Error al actualizar estado en Supabase: ' + err.message);
+    }
+  };
+
+  const handleBlockDriver = async (driver: Driver) => {
+    const newStatus = driver.status === 'blocked' ? 'inactive' : 'blocked';
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status: newStatus })
+        .eq('id', driver.id);
+      if (error) throw error;
+      updateDriver({ ...driver, status: newStatus });
+      alert(`Estado de seguridad del conductor cambiado a ${newStatus === 'blocked' ? 'Bloqueado' : 'Desbloqueado'}`);
+    } catch (err: any) {
+      alert('Error al actualizar bloqueo en Supabase: ' + err.message);
+    }
+  };
+
+  const handleDeleteDriver = async (driverId: string) => {
+    if (!confirm('¿Estás seguro de eliminar este conductor?')) return;
+    try {
+      // 1. Eliminar de driver_profiles
+      const { error: dpError } = await supabase
+        .from('driver_profiles')
+        .delete()
+        .eq('id', driverId);
+      if (dpError) throw dpError;
+
+      // 2. Quitar el rol en profiles para que no aparezca como conductor
+      const { error: pError } = await supabase
+        .from('profiles')
+        .update({ role: 'user', status: 'inactive' })
+        .eq('id', driverId);
+      if (pError) throw pError;
+
+      deleteDriver(driverId);
+      alert('Conductor eliminado de la lista de reparto.');
+    } catch (err: any) {
+      alert('Error al eliminar conductor de Supabase: ' + err.message);
+    }
   };
 
   const exportDriversToExcel = () => {
@@ -1735,23 +2260,35 @@ export const AdminPanel = () => {
 
   const handleSaveCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentCoupon) return;
     
-    // For admin, we might need a way to assign to a business or global
-    // Assuming global for now if no business is selected
-    const businessId = currentCoupon?.businessId && currentCoupon.businessId !== 'all' 
-      ? currentCoupon.businessId 
-      : businesses[0]?.id; // Fallback to first business for prototype
+    const targetBusinessId = currentCoupon.businessId === 'all' ? null : currentCoupon.businessId;
+
+    const couponPayload = {
+      title: currentCoupon.description || 'Promoción Global',
+      description: currentCoupon.description,
+      discount_percentage: currentCoupon.type === 'percentage' ? currentCoupon.value : 0,
+      code: currentCoupon.code,
+      valid_until: currentCoupon.endDate || new Date().toISOString(),
+      type: currentCoupon.type || 'percentage',
+      value: currentCoupon.value || 0,
+      business_id: targetBusinessId,
+      category: currentCoupon.category || 'all',
+      product_id: currentCoupon.productId === 'all' ? null : currentCoupon.productId,
+      min_purchase: currentCoupon.minPurchase || 0,
+      start_date: currentCoupon.startDate || null,
+      end_date: currentCoupon.endDate || null,
+      start_time: currentCoupon.startTime || '00:00',
+      end_time: currentCoupon.endTime || '23:59',
+      status: currentCoupon.status || 'active',
+      is_active: currentCoupon.status === 'active',
+      internal_notes: currentCoupon.internal_notes || ''
+    };
 
     if (currentCoupon?.id) {
       const { data } = await supabase
         .from('promotions')
-        .update({
-          title: currentCoupon.description,
-          description: currentCoupon.description,
-          discount_percentage: currentCoupon.value,
-          code: currentCoupon.code,
-          valid_until: currentCoupon.endDate
-        })
+        .update(couponPayload)
         .eq('id', currentCoupon.id)
         .select()
         .single();
@@ -1762,14 +2299,7 @@ export const AdminPanel = () => {
     } else {
       const { data } = await supabase
         .from('promotions')
-        .insert({
-          business_id: businessId,
-          title: currentCoupon?.description || 'Promoción Global',
-          description: currentCoupon?.description,
-          discount_percentage: currentCoupon?.value,
-          code: currentCoupon?.code,
-          valid_until: currentCoupon?.endDate || new Date().toISOString()
-        })
+        .insert(couponPayload)
         .select()
         .single();
         
@@ -2086,9 +2616,14 @@ export const AdminPanel = () => {
               { id: 'discounts', label: 'Descuentos', icon: Tag },
               { id: 'banners', label: 'Banners', icon: ImageIcon },
               { id: 'notifications', label: 'Notificaciones', icon: Bell },
+              { id: 'cajero', label: 'Canje Fidelidad', icon: Star },
               { id: 'administration', label: 'Administración', icon: ShieldCheck },
             ]
-            .filter((item) => currentUser?.role === 'cocina' ? item.id === 'kitchen' : true)
+            .filter((item) => {
+              if (currentUser?.role === 'cocina') return item.id === 'kitchen';
+              if (currentUser?.role === 'cajero') return item.id === 'cajero';
+              return true;
+            })
             .map((item) => (
               <button
                 key={item.id}
@@ -2145,6 +2680,7 @@ export const AdminPanel = () => {
                  activeTab === 'discounts' ? 'Gestión de Descuentos' : 
                  activeTab === 'banners' ? 'Banners Promocionales' : 
                  activeTab === 'notifications' ? 'Centro de Notificaciones' : 
+                 activeTab === 'cajero' ? 'Canje de Fidelidad' :
                  activeTab === 'administration' ? 'Administración de Accesos' : 
                  activeTab === 'logs' ? 'Logs de Actividad' : 'Configuración Global'}
               </h1>
@@ -2158,6 +2694,7 @@ export const AdminPanel = () => {
                  activeTab === 'discounts' ? 'Crea y gestiona cupones globales.' : 
                  activeTab === 'banners' ? 'Gestiona los anuncios dinámicos de la página principal.' : 
                  activeTab === 'notifications' ? 'Envía mensajes y promociones push a tus usuarios.' : 
+                 activeTab === 'cajero' ? 'Escanea el QR de premio del cliente para validar y registrar el canje.' :
                  activeTab === 'administration' ? 'Asigna roles y permisos de acceso a los usuarios del sistema.' : 
                  activeTab === 'logs' ? 'Registro detallado de acciones y eventos del sistema.' : 'Ajustes del sistema.'}
               </p>
@@ -2408,11 +2945,11 @@ export const AdminPanel = () => {
                               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-medium ${
                                 isProtectedSuperAdmin ? 'bg-amber-100 text-amber-600' : 'bg-surface text-muted'
                               }`}>
-                                {isProtectedSuperAdmin ? '👑' : user.name.charAt(0)}
+                                {isProtectedSuperAdmin ? '👑' : (user.name?.charAt(0)?.toUpperCase() || '?')}
                               </div>
                               <div>
                                 <span className="font-medium text-dark">
-                                  {isProtectedSuperAdmin ? 'Super Administrador' : user.name}
+                                  {isProtectedSuperAdmin ? 'Super Administrador' : (user.name || 'Usuario sin Nombre')}
                                 </span>
                                 {isProtectedSuperAdmin && (
                                   <p className="text-[10px] text-amber-500 font-medium">Cuenta protegida del sistema</p>
@@ -2453,7 +2990,11 @@ export const AdminPanel = () => {
                                 >
                                   {user.status === 'active' ? <XCircle size={20} /> : <CheckCircle size={20} />}
                                 </button>
-                                <button className="p-2 text-muted hover:text-red-600 transition-colors">
+                                <button 
+                                  onClick={() => deleteUser(user.id)}
+                                  className="p-2 text-muted hover:text-red-600 transition-colors"
+                                  title="Eliminar Usuario"
+                                >
                                   <Trash2 size={20} />
                                 </button>
                               </div>
@@ -3283,7 +3824,7 @@ export const AdminPanel = () => {
                       </button>
                       <div className="flex items-center space-x-1">
                         <button 
-                          onClick={() => toggleDriverStatus(driver.id)}
+                          onClick={() => handleToggleDriverStatus(driver)}
                           className={`p-2.5 rounded-xl border-2 transition-all ${
                             driver.status === 'active' 
                               ? 'border-gray-100 text-gray-400 hover:bg-gray-400 hover:text-white' 
@@ -3295,10 +3836,7 @@ export const AdminPanel = () => {
                           {driver.status === 'active' ? <XCircle size={18} /> : <CheckCircle size={18} />}
                         </button>
                         <button 
-                          onClick={() => {
-                            const newStatus = driver.status === 'blocked' ? 'inactive' : 'blocked';
-                            updateDriver({...driver, status: newStatus});
-                          }}
+                          onClick={() => handleBlockDriver(driver)}
                           className={`p-2.5 rounded-xl border-2 transition-all ${
                             driver.status === 'blocked'
                               ? 'border-blue-100 text-blue-500 hover:bg-blue-500 hover:text-white'
@@ -3310,11 +3848,7 @@ export const AdminPanel = () => {
                         </button>
                       </div>
                       <button 
-                        onClick={() => {
-                          if (confirm('¿Estás seguro de eliminar este conductor?')) {
-                            deleteDriver(driver.id);
-                          }
-                        }}
+                        onClick={() => handleDeleteDriver(driver.id)}
                         className="p-3 rounded-xl border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
                         title="Eliminar"
                       >
@@ -3934,6 +4468,10 @@ export const AdminPanel = () => {
             </div>
           )}
 
+          {activeTab === 'cajero' && (
+            <CajeroPanel currentUser={currentUser} />
+          )}
+
         </div>
       </main>
 
@@ -4436,6 +4974,77 @@ export const AdminPanel = () => {
                   </div>
                 </div>
 
+                {/* Sección 3.5: Restricciones de Negocio y Producto */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] flex items-center">
+                    <div className="w-8 h-[1px] bg-primary/30 mr-2" />
+                    Restricciones de Uso
+                  </h4>
+                  <div className="bg-surface/50 p-6 rounded-3xl border border-surface space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted uppercase mb-2 ml-1">Comercio Asociado</label>
+                        <select 
+                          value={currentCoupon?.businessId || 'all'}
+                          onChange={e => setCurrentCoupon({ ...currentCoupon, businessId: e.target.value })}
+                          className="w-full bg-white border-2 border-surface rounded-2xl px-4 py-3 focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-medium text-dark text-sm transition-all"
+                        >
+                          <option value="all">Válido en Todos los Comercios (Global)</option>
+                          {businesses.map((b: any) => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted uppercase mb-2 ml-1">Compra Mínima Requerida</label>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            placeholder="0 (Sin compra mínima)"
+                            value={currentCoupon?.minPurchase || ''}
+                            onChange={e => setCurrentCoupon({ ...currentCoupon, minPurchase: Number(e.target.value) })}
+                            className="w-full bg-white border-2 border-surface rounded-2xl px-4 py-3 focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-medium text-dark text-sm transition-all" 
+                          />
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-muted">$</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted uppercase mb-2 ml-1">Categoría del Producto</label>
+                        <select 
+                          value={currentCoupon?.category || 'all'}
+                          onChange={e => setCurrentCoupon({ ...currentCoupon, category: e.target.value })}
+                          className="w-full bg-white border-2 border-surface rounded-2xl px-4 py-3 focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-medium text-dark text-sm transition-all"
+                        >
+                          <option value="all">Todas las Categorías</option>
+                          {allCategories.map((cat: string) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted uppercase mb-2 ml-1">Producto Específico</label>
+                        <select 
+                          value={currentCoupon?.productId || 'all'}
+                          onChange={e => setCurrentCoupon({ ...currentCoupon, productId: e.target.value })}
+                          className="w-full bg-white border-2 border-surface rounded-2xl px-4 py-3 focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 font-medium text-dark text-sm transition-all"
+                        >
+                          <option value="all">Todos los Productos</option>
+                          {allProducts
+                            .filter((p: any) => currentCoupon?.businessId === 'all' || !currentCoupon?.businessId || p.business_id === currentCoupon.businessId)
+                            .map((p: any) => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Sección 4: Notas Internas (Opcional) */}
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] flex items-center">
@@ -4624,6 +5233,18 @@ export const AdminPanel = () => {
                             className="w-full bg-surface border-2 border-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:border-primary/50 font-medium text-dark" 
                           />
                         </div>
+                        {!currentDriver?.id && (
+                          <div className="md:col-span-2">
+                            <label className="block text-[10px] font-bold text-muted uppercase mb-2 ml-1">Contraseña de la Cuenta (Min. 6 caracteres)</label>
+                            <input 
+                              type="password" 
+                              placeholder="Por defecto: Tentacion2026!"
+                              value={(currentDriver as any)?.password || ''}
+                              onChange={e => setCurrentDriver({ ...currentDriver, password: e.target.value } as any)}
+                              className="w-full bg-surface border-2 border-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:border-primary/50 font-medium text-dark" 
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
 

@@ -206,7 +206,7 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-center items-center sm:p-4 pt-10">
+    <div className="fixed inset-0 z-[100] flex flex-col justify-end sm:items-center sm:justify-center sm:p-4">
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -220,27 +220,33 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: "100%", opacity: 0 }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="relative bg-white w-full max-w-xl max-h-[85vh] sm:rounded-[32px] overflow-hidden flex flex-col shadow-2xl z-10"
+        className="relative bg-white w-full max-w-xl rounded-t-[32px] sm:rounded-[32px] flex flex-col shadow-2xl z-10"
+        style={{ maxHeight: 'calc(100dvh - 72px)', marginTop: 'auto' }}
       >
-        {/* Header Image */}
-        <div className="relative h-44 sm:h-52 shrink-0 bg-[#F8F9FA] flex items-center justify-center p-4 overflow-hidden border-b border-surface">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent opacity-60" />
-          <img 
-            src={product.image || fallbackImage} 
-            alt={product.name} 
-            onError={(e) => { e.currentTarget.src = fallbackImage; }}
-            className="w-full h-full object-contain drop-shadow-lg relative z-10 transition-transform duration-500 hover:scale-105" 
-          />
-          <button 
-            onClick={onClose}
-            className="absolute top-4 right-4 z-[60] w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md text-dark hover:bg-white transition-all hover:scale-110"
-          >
-            <X size={18} strokeWidth={3} />
-          </button>
-        </div>
+        {/* Close button — siempre visible en la esquina */}
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 z-[60] w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md text-dark hover:bg-white transition-all hover:scale-110"
+        >
+          <X size={18} strokeWidth={3} />
+        </button>
 
-        <div className="flex-1 flex flex-col overflow-hidden relative">
-          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar">
+        {/* Scrollable content — imagen incluida dentro del scroll */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+
+          {/* Imagen del producto dentro del área scrolleable */}
+          <div className="relative h-48 sm:h-56 shrink-0 bg-[#F8F9FA] flex items-center justify-center p-6 overflow-hidden border-b border-surface rounded-t-[32px] sm:rounded-t-[32px]">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent opacity-60" />
+            <img 
+              src={product.image || fallbackImage} 
+              alt={product.name} 
+              onError={(e) => { e.currentTarget.src = fallbackImage; }}
+              className="w-full h-full object-contain drop-shadow-lg relative z-10 transition-transform duration-500 hover:scale-105" 
+            />
+          </div>
+
+          {/* Info y opciones */}
+          <div className="p-5 sm:p-6 space-y-6">
             <div className="space-y-2">
               <h3 className="text-2xl font-black text-dark tracking-tight leading-tight">{product.name}</h3>
               <p className="text-muted text-sm leading-relaxed font-medium line-clamp-2">{product.description}</p>
@@ -274,7 +280,7 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
                         </div>
                         <span className="font-bold text-dark text-sm">{size.name}</span>
                       </div>
-                      <span className="font-bold text-primary text-sm font-mono">${size.price}</span>
+                      <span className="font-bold text-primary text-sm font-mono">${size.price.toLocaleString('es-CL')}</span>
                     </button>
                   ))}
                 </div>
@@ -392,39 +398,40 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
               />
             </div>
           </div>
+        </div>
 
-          <div className="p-4 sm:p-5 bg-white border-t border-surface flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-            <div className="flex items-center justify-between sm:justify-start gap-4 bg-[#F8F9FA] rounded-2xl p-1 border border-surface shadow-inner">
-              <button 
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white shadow-sm text-dark hover:text-primary transition-all active:scale-90"
-              >
-                <Minus size={16} strokeWidth={3} />
-              </button>
-              <span className="font-black text-lg min-w-[28px] text-center text-dark font-mono">{quantity}</span>
-              <button 
-                onClick={() => setQuantity(quantity + 1)}
-                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white shadow-sm text-dark hover:text-primary transition-all active:scale-90"
-              >
-                <Plus size={16} strokeWidth={3} />
-              </button>
-            </div>
-
-            <button
-              onClick={handleAddToCart}
-              disabled={!isSelectionValid()}
-              className={`flex-1 h-12 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 relative overflow-hidden group ${
-                isSelectionValid()
-                  ? 'bg-primary text-white shadow-lg hover:translate-y-[-2px] active:translate-y-[0px]'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-              }`}
+        {/* Footer fijo con cantidad y botón agregar */}
+        <div className="p-4 sm:p-5 bg-white border-t border-surface flex flex-col sm:flex-row items-stretch sm:items-center gap-4 rounded-b-[0px] sm:rounded-b-[32px]">
+          <div className="flex items-center justify-between sm:justify-start gap-4 bg-[#F8F9FA] rounded-2xl p-1 border border-surface shadow-inner">
+            <button 
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white shadow-sm text-dark hover:text-primary transition-all active:scale-90"
             >
-              <span className="relative z-10 font-bold uppercase tracking-widest">Agregar • ${(totalPrice || 0).toLocaleString('es-CL')}</span>
-              {isSelectionValid() && (
-                <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
-              )}
+              <Minus size={16} strokeWidth={3} />
+            </button>
+            <span className="font-black text-lg min-w-[28px] text-center text-dark font-mono">{quantity}</span>
+            <button 
+              onClick={() => setQuantity(quantity + 1)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white shadow-sm text-dark hover:text-primary transition-all active:scale-90"
+            >
+              <Plus size={16} strokeWidth={3} />
             </button>
           </div>
+
+          <button
+            onClick={handleAddToCart}
+            disabled={!isSelectionValid()}
+            className={`flex-1 h-12 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 relative overflow-hidden group ${
+              isSelectionValid()
+                ? 'bg-primary text-white shadow-lg hover:translate-y-[-2px] active:translate-y-[0px]'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+            }`}
+          >
+            <span className="relative z-10 font-bold uppercase tracking-widest">Agregar • ${(totalPrice || 0).toLocaleString('es-CL')}</span>
+            {isSelectionValid() && (
+              <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+            )}
+          </button>
         </div>
       </motion.div>
     </div>

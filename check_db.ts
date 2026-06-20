@@ -12,19 +12,17 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function check() {
-  const { data: mgData, error: mgError } = await supabase
-    .from('modifier_groups')
+  const { data: promoData, error: promoError } = await supabase
+    .from('promotions')
     .select('*')
     .limit(1);
     
-  console.log('modifier_groups:', mgData?.[0]);
-
-  const { data: moData, error: moError } = await supabase
-    .from('modifier_options')
-    .select('*')
-    .limit(1);
-
-  console.log('modifier_options:', moData?.[0]);
+  if (promoError) {
+    console.error('Error fetching promotions:', promoError);
+  } else {
+    console.log('promotions first row:', promoData?.[0]);
+  }
 }
 
 check();
+

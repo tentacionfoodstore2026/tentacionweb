@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type Role = 'user' | 'comercio' | 'repartidor' | 'cocina' | 'admin' | 'super_admin';
+export type Role = 'user' | 'comercio' | 'repartidor' | 'cocina' | 'cajero' | 'admin' | 'super_admin';
 
 export interface ClaimedPromotion {
   promoId: string;
@@ -163,6 +163,9 @@ export interface Coupon {
   usageCount: number;
   status: 'active' | 'inactive';
   businessId: string; // 'all' for global coupons
+  category?: string; // 'all' or specific category name
+  productId?: string; // specific product id
+  minPurchase?: number; // minimum total amount to apply coupon
   description: string;
   startDate: string;
   endDate: string;

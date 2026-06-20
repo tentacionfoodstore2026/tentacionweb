@@ -56,7 +56,7 @@ export const Profile = () => {
     fetchProfileData();
   }, [user]);
 
-  // Realtime: update active orders automatically
+  // Realtime: update active orders and loyalty card automatically
   useEffect(() => {
     if (!user) return;
     
@@ -69,7 +69,16 @@ export const Profile = () => {
       if (data) setOrders(data);
     };
 
-    const channel = supabase
+    const fetchLoyalty = async () => {
+      const { data } = await supabase
+        .from('loyalty_cards')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      if (data) setLoyaltyCard(data);
+    };
+
+    const channelOrders = supabase
       .channel('profile-orders-realtime')
       .on(
         'postgres_changes',
@@ -80,8 +89,23 @@ export const Profile = () => {
         }
       )
       .subscribe();
+
+    const channelLoyalty = supabase
+      .channel('profile-loyalty-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'loyalty_cards', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          console.log('Loyalty update detected:', payload);
+          fetchLoyalty();
+        }
+      )
+      .subscribe();
       
-    return () => { channel.unsubscribe(); };
+    return () => { 
+      channelOrders.unsubscribe(); 
+      channelLoyalty.unsubscribe(); 
+    };
   }, [user]);
 
   if (!user) return null;
@@ -91,7 +115,7 @@ export const Profile = () => {
     return claim ? { ...promo, ...claim } : null;
   }).filter(Boolean) as any[];
 
-  const activeOrderForPoint = orders.find(o => !o.point_claimed && (o.status === 'confirmed' || o.status === 'delivered'));
+  const activeOrderForPoint = orders.find(o => !o.point_claimed && o.status !== 'cancelled');
 
   return (
     <div className="min-h-screen bg-surface/50 pt-24 pb-12">
@@ -155,27 +179,45 @@ export const Profile = () => {
             <div className="bg-surface rounded-2xl border border-surface p-8">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-medium text-dark mb-2">Tu Tarjeta de Fidelidad</h2>
-                <p className="text-muted">Acumula 6 puntos y obtén una recompensa especial.</p>
-                {user.loyaltyCard && (
-                  <p className="text-xs text-muted/60 mt-2">
-                    Válida hasta: {new Date(user.loyaltyCard.expiresAt).toLocaleDateString()}
-                  </p>
+                {loyaltyCard && loyaltyCard.points >= 6 ? (
+                  <p className="text-sm font-medium text-green-600">🎉 ¡Tarjeta completada! Muestra el QR a la cajera para canjear tu premio.</p>
+                ) : (
+                  <p className="text-muted">Acumula 6 puntos y obtén una recompensa especial.</p>
+                )}
+                {loyaltyCard && loyaltyCard.activated_at && loyaltyCard.points < 6 && (
+                  <div className="flex justify-center gap-6 mt-3">
+                    <span className="text-xs text-muted/70">
+                      <span className="font-medium text-muted">Activada el:</span>{' '}
+                      {new Date(loyaltyCard.activated_at).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </span>
+                    <span className="text-xs text-muted/70">
+                      <span className="font-medium text-muted">Vence el:</span>{' '}
+                      {new Date(loyaltyCard.expires_at).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </span>
+                  </div>
                 )}
               </div>
 
-              <div className="flex justify-center mb-12">
+              {/* Stars Grid */}
+              <div className="flex justify-center mb-10">
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
                   {[...Array(6)].map((_, i) => {
-                    const isEarned = user.loyaltyCard && i < user.loyaltyCard.points;
+                    const isEarned = loyaltyCard && i < loyaltyCard.points;
+                    const isComplete = loyaltyCard && loyaltyCard.points >= 6;
                     return (
                       <motion.div
                         key={i}
                         initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ delay: i * 0.1 }}
+                        animate={{
+                          scale: isComplete ? [1, 1.15, 1] : 1,
+                          opacity: 1,
+                        }}
+                        transition={{ delay: i * 0.1, duration: isComplete ? 0.6 : 0.3 }}
                         className={`w-16 h-16 rounded-full flex items-center justify-center border-4 ${
-                          isEarned 
-                            ? 'bg-primary border-primary text-dark shadow-lg shadow-primary/20' 
+                          isEarned
+                            ? isComplete
+                              ? 'bg-amber-400 border-amber-500 text-dark shadow-xl shadow-amber-300/40'
+                              : 'bg-primary border-primary text-dark shadow-lg shadow-primary/20'
                             : 'bg-surface border-dark/10 text-dark/20'
                         }`}
                       >
@@ -186,20 +228,47 @@ export const Profile = () => {
                 </div>
               </div>
 
-              {activeOrderForPoint ? (
+              {/* REWARD QR - Tarjeta Completa (6 estrellas) */}
+              {loyaltyCard && loyaltyCard.points >= 6 && loyaltyCard.reward_token ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-2xl p-8 text-center max-w-sm mx-auto"
+                >
+                  <div className="text-4xl mb-3">🎁</div>
+                  <h3 className="font-bold text-dark text-lg mb-1">¡Premio Desbloqueado!</h3>
+                  <p className="text-sm text-muted mb-5">
+                    Muestra este código a la cajera del local para canjear tu recompensa especial.
+                  </p>
+                  <div className="bg-white p-4 rounded-2xl shadow-md inline-block">
+                    <QRCodeSVG
+                      value={JSON.stringify({
+                        type: 'loyalty_reward',
+                        userId: user.id,
+                        token: loyaltyCard.reward_token,
+                      })}
+                      size={200}
+                      level="H"
+                    />
+                  </div>
+                  <p className="text-xs text-muted/60 mt-4">Código único y de un solo uso. No compartas esta pantalla.</p>
+                </motion.div>
+              ) : activeOrderForPoint ? (
+                /* QR para sumar punto (pedido en camino) */
                 <div className="bg-dark/5 rounded-2xl p-8 text-center max-w-sm mx-auto">
                   <h3 className="font-medium text-dark mb-4">Escanea para sumar un punto</h3>
                   <p className="text-sm text-muted mb-6">
-                    Muestra este código al repartidor al recibir tu pedido #{activeOrderForPoint.id}.
+                    Muestra este código al repartidor al recibir tu pedido #{activeOrderForPoint.id.slice(0, 8).toUpperCase()}.
                   </p>
-                  <div className="bg-white p-4 rounded-2xl font-medium shadow-sm">
-                    <QRCodeSVG 
-                      value={JSON.stringify({ userId: user.id, orderId: activeOrderForPoint.id })} 
+                  <div className="bg-white p-4 rounded-2xl font-medium shadow-sm inline-block">
+                    <QRCodeSVG
+                      value={JSON.stringify({ userId: user.id, orderId: activeOrderForPoint.id })}
                       size={200}
                     />
                   </div>
                 </div>
               ) : (
+                /* Sin pedidos pendientes */
                 <div className="bg-primary/10 rounded-2xl p-6 text-center max-w-sm mx-auto">
                   <Package size={32} className="text-primary mx-auto mb-3" />
                   <h3 className="font-medium text-dark mb-2">No hay pedidos pendientes</h3>

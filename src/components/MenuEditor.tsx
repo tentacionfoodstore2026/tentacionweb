@@ -173,7 +173,13 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentProduct?.name || !currentProduct?.price) return;
+    if (!currentProduct?.name) return;
+
+    const hasSizes = currentProduct.sizes && currentProduct.sizes.length > 0;
+    if (!hasSizes && !currentProduct.price) {
+      alert('Por favor, ingresa el precio base del plato.');
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -869,12 +875,14 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
 
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-[10px] font-semibold text-muted mb-3 uppercase tracking-[0.2em]">Precio Base</label>
+                            <label className="block text-[10px] font-semibold text-muted mb-3 uppercase tracking-[0.2em]">
+                              Precio Base {(!currentProduct?.sizes || currentProduct.sizes.length === 0) ? '' : <span className="text-muted/50 font-normal lowercase">(opcional)</span>}
+                            </label>
                             <div className="relative">
                               <span className="absolute left-6 top-1/2 -translate-y-1/2 font-semibold text-muted">$</span>
                               <input 
                                 type="number"
-                                required
+                                required={!currentProduct?.sizes || currentProduct.sizes.length === 0}
                                 value={currentProduct?.price || ''}
                                 onChange={(e) => setCurrentProduct({ ...currentProduct, price: Number(e.target.value) })}
                                 className="w-full bg-surface border-none rounded-2xl pl-10 pr-6 py-4 text-base font-semibold focus:ring-4 focus:ring-accent/10 transition-all"
@@ -912,7 +920,7 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                       
                       {/* Sección Tamaños */}
                       <div className="bg-white p-8 rounded-2xl shadow-sm border border-surface/50">
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center justify-between mb-4">
                           <div>
                             <label className="block text-[10px] font-semibold text-muted uppercase tracking-[0.2em]">Tamaños / Porciones</label>
                             <p className="text-[9px] font-medium text-muted/60 mt-1 uppercase italic">Si no hay tamaños, se usará el precio base</p>
@@ -927,8 +935,32 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                             }}
                             className="h-10 px-5 bg-dark text-white rounded-xl text-[10px] font-semibold uppercase tracking-widest flex items-center gap-2 hover:bg-accent hover:text-dark transition-all shadow-md active:scale-95"
                           >
-                            <Plus size={14} /> Añadir
+                            <Plus size={14} /> Añadir Personalizado
                           </button>
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="flex flex-wrap gap-2 mb-6 p-4 bg-surface/30 rounded-2xl border border-surface/50">
+                          <span className="text-[9px] font-bold text-muted uppercase self-center mr-1">Tamaños rápidos:</span>
+                          {['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Individual', 'Mediana', 'Grande', 'Familiar'].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => {
+                                if (!currentProduct) return;
+                                const sizes = [...(currentProduct.sizes || [])];
+                                if (sizes.some(s => s.name.toUpperCase() === preset.toUpperCase())) {
+                                  alert(`El tamaño "${preset}" ya ha sido agregado.`);
+                                  return;
+                                }
+                                sizes.push({ name: preset, price: 0 });
+                                setCurrentProduct({ ...currentProduct, sizes });
+                              }}
+                              className="px-3 py-1.5 bg-white border border-surface hover:border-accent hover:text-accent rounded-xl text-[10px] font-semibold transition-all shadow-sm active:scale-95"
+                            >
+                              + {preset}
+                            </button>
+                          ))}
                         </div>
                         
                         <div className="space-y-3">
@@ -955,7 +987,7 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                                 <input 
                                   type="number"
                                   placeholder="Precio"
-                                  value={size.price}
+                                  value={size.price === 0 ? '' : size.price}
                                   onChange={(e) => {
                                     if (!currentProduct || !currentProduct.sizes) return;
                                     const sizes = [...currentProduct.sizes];
