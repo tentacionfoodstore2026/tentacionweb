@@ -75,7 +75,10 @@ export const Home = () => {
         }
 
         // Map snake_case to camelCase and handle potentially null fields
-        const formattedData = (data || []).map(b => ({
+        // Only include businesses that are not marked as inactive
+        const formattedData = (data || [])
+          .filter(b => b.status !== 'inactive')
+          .map(b => ({
           id: b.id,
           name: b.name || 'Sin nombre',
           description: b.description || '',
