@@ -966,8 +966,11 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                         <div className="space-y-3">
                           {(currentProduct?.sizes || []).map((size, index) => (
                             <motion.div 
-                              initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                              key={index} className={`flex gap-3 items-center group transition-opacity ${size.hidden ? 'opacity-40' : 'opacity-100'}`}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: size.hidden ? 0.4 : 1, x: 0 }}
+                              transition={{ duration: 0.2 }}
+                              key={index}
+                              className="flex gap-3 items-center"
                             >
                               <div className="flex-1 relative">
                                 <input 
@@ -1007,10 +1010,10 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                                   sizes[index] = { ...sizes[index], hidden: !sizes[index].hidden };
                                   setCurrentProduct({ ...currentProduct, sizes });
                                 }}
-                                className={`w-10 h-10 flex items-center justify-center rounded-2xl transition-colors ${
+                                className={`w-10 h-10 flex items-center justify-center rounded-2xl transition-all ${
                                   size.hidden
-                                    ? 'text-amber-400 bg-amber-50 hover:bg-amber-100 hover:text-amber-600'
-                                    : 'text-muted/40 hover:bg-surface hover:text-muted'
+                                    ? 'text-amber-500 bg-amber-100 hover:bg-amber-200'
+                                    : 'text-slate-400 bg-slate-100 hover:bg-slate-200 hover:text-slate-600'
                                 }`}
                               >
                                 {size.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
