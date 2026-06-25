@@ -18,7 +18,9 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
   const fallbackImage = portalSettings?.default_product_image_url || '';
   
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(
-    (Array.isArray(product.sizes) && product.sizes.length > 0) ? product.sizes[0] : undefined
+    (Array.isArray(product.sizes) && product.sizes.length > 0)
+      ? (product.sizes.find(s => !s.hidden) || product.sizes[0])
+      : undefined
   );
   const [selectedExtras, setSelectedExtras] = useState<{ groupName: string; optionName: string; price: number }[]>([]);
   const [quantity, setQuantity] = useState(1);
@@ -250,19 +252,19 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
             <div className="space-y-2">
               <h3 className="text-2xl font-black text-dark tracking-tight leading-tight">{product.name}</h3>
               <p className="text-muted text-sm leading-relaxed font-medium line-clamp-2">{product.description}</p>
-              {(!Array.isArray(product.sizes) || product.sizes.length === 0) && (
+              {(!Array.isArray(product.sizes) || product.sizes.filter(s => !s.hidden).length === 0) && (
                 <div className="text-xl font-black text-primary font-mono mt-2">${(product.price || 0).toLocaleString('es-CL')}</div>
               )}
             </div>
 
-            {Array.isArray(product.sizes) && product.sizes.length > 0 && (
+            {Array.isArray(product.sizes) && product.sizes.filter(s => !s.hidden).length > 0 && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold text-dark text-base uppercase tracking-tight">Tamaño</h4>
                   <span className="text-[9px] font-black tracking-widest uppercase text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">Obligatorio</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {product.sizes.map((size) => (
+                  {product.sizes.filter(s => !s.hidden).map((size) => (
                     <button
                       key={size.name}
                       onClick={() => setSelectedSize(size)}

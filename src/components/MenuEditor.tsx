@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, ChevronRight, ChevronDown, Save, X, Image as ImageIcon, PlusCircle, MinusCircle, GripVertical, ImagePlus, Pizza, Settings2, ToggleLeft, FileDown, FileUp, FileSpreadsheet } from 'lucide-react';
+import { Plus, Trash2, Edit2, ChevronRight, ChevronDown, Save, X, Image as ImageIcon, PlusCircle, MinusCircle, GripVertical, ImagePlus, Pizza, Settings2, ToggleLeft, FileDown, FileUp, FileSpreadsheet, Eye, EyeOff } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { ModifierGroupManager, ModifierGroup } from './ModifierGroupManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -967,7 +967,7 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                           {(currentProduct?.sizes || []).map((size, index) => (
                             <motion.div 
                               initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                              key={index} className="flex gap-3 items-center group"
+                              key={index} className={`flex gap-3 items-center group transition-opacity ${size.hidden ? 'opacity-40' : 'opacity-100'}`}
                             >
                               <div className="flex-1 relative">
                                 <input 
@@ -997,6 +997,24 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                                   className="w-full bg-surface border-none rounded-2xl pl-8 pr-4 py-3 text-xs font-semibold"
                                 />
                               </div>
+                              {/* Toggle visibilidad pública */}
+                              <button
+                                type="button"
+                                title={size.hidden ? 'Activar opción al público' : 'Ocultar opción al público'}
+                                onClick={() => {
+                                  if (!currentProduct || !currentProduct.sizes) return;
+                                  const sizes = [...currentProduct.sizes];
+                                  sizes[index] = { ...sizes[index], hidden: !sizes[index].hidden };
+                                  setCurrentProduct({ ...currentProduct, sizes });
+                                }}
+                                className={`w-10 h-10 flex items-center justify-center rounded-2xl transition-colors ${
+                                  size.hidden
+                                    ? 'text-amber-400 bg-amber-50 hover:bg-amber-100 hover:text-amber-600'
+                                    : 'text-muted/40 hover:bg-surface hover:text-muted'
+                                }`}
+                              >
+                                {size.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
+                              </button>
                               <button 
                                 type="button"
                                 onClick={() => {

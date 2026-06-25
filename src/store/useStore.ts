@@ -59,6 +59,7 @@ export interface Business {
 export interface ProductSize {
   name: string;
   price: number;
+  hidden?: boolean;
 }
 
 export interface ProductExtra {
