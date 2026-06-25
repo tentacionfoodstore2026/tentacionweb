@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, Utensils, Settings, BarChart3, Plus, Edit2, Trash2, Save, X, Image as ImageIcon, Clock, Calendar, Truck, Tag, ShoppingBag, CheckCircle2, Clock3, XCircle } from 'lucide-react';
+import { LayoutDashboard, Utensils, Settings, BarChart3, Plus, Edit2, Trash2, Save, X, Image as ImageIcon, Clock, Calendar, Truck, Tag, ShoppingBag, CheckCircle2, Clock3, XCircle, Video } from 'lucide-react';
 import { Product, OpeningHours, useAuthStore, Coupon, Order } from '../store/useStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { ImageUpload } from '../components/ImageUpload';
@@ -47,6 +47,9 @@ export const MerchantPanel = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [promoImages, setPromoImages] = useState<string[]>([]);
+  const [youtubeUrl, setYoutubeUrl] = useState<string>('');
+
   const [isEditingProduct, setIsEditingProduct] = React.useState(false);
   const [isEditingCoupon, setIsEditingCoupon] = React.useState(false);
   const [currentProduct, setCurrentProduct] = React.useState<Partial<Product> | null>(null);
@@ -65,7 +68,11 @@ export const MerchantPanel = () => {
           .select('*')
           .eq('id', user.businessId)
           .single();
-        if (bizData) setBusiness(bizData);
+        if (bizData) {
+          setBusiness(bizData);
+          setPromoImages(bizData.promo_images || []);
+          setYoutubeUrl(bizData.youtube_url || '');
+        }
 
         // Fetch Products
         const { data: prodData } = await supabase
@@ -253,6 +260,28 @@ export const MerchantPanel = () => {
 
   const toggleCouponStatus = async (id: string) => {
     // Not implemented in Supabase schema directly, but we can just ignore for now
+  };
+
+  const handleSaveSettings = async () => {
+    if (!business) return;
+    try {
+      const { error } = await supabase
+        .from('businesses')
+        .update({
+          promo_images: promoImages,
+          youtube_url: youtubeUrl
+        })
+        .eq('id', business.id);
+      
+      if (!error) {
+        alert('Configuración guardada exitosamente');
+      } else {
+        console.error('Error saving settings:', error);
+        alert('Error al guardar la configuración');
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   if (loading || !business) {
@@ -814,6 +843,10 @@ export const MerchantPanel = () => {
                           <input type="text" defaultValue={business.facebook} placeholder="facebook.com/..." className="w-full bg-surface border border-surface rounded-2xl px-4 py-2 focus:outline-none focus:ring-4 focus:ring-primary/10" />
                         </div>
                         <div>
+                          <label className="block text-xs font-medium text-muted mb-1">TikTok (URL)</label>
+                          <input type="text" name="tiktok_url" defaultValue={business.tiktokUrl} placeholder="tiktok.com/@..." className="w-full bg-surface border border-surface rounded-2xl px-4 py-2 focus:outline-none focus:ring-4 focus:ring-primary/10" />
+                        </div>
+                        <div>
                           <label className="block text-xs font-medium text-muted mb-1">Sitio Web</label>
                           <input type="text" defaultValue={business.website} placeholder="www.ejemplo.com" className="w-full bg-surface border border-surface rounded-2xl px-4 py-2 focus:outline-none focus:ring-4 focus:ring-primary/10" />
                         </div>
@@ -910,9 +943,87 @@ export const MerchantPanel = () => {
                       </div>
                     </div>
                   </div>
+
+                  <div className="md:col-span-2 space-y-6 pt-6 border-t border-surface">
+                    <h3 className="text-lg font-medium text-dark flex items-center space-x-2">
+                      <Video size={20} className="text-accent" />
+                      <span>Multimedia</span>
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* Promo Images */}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-dark mb-1">Banner Rotativo (Máx 5)</label>
+                          <p className="text-xs text-muted mb-4">Estas imágenes se mostrarán rotando en la ficha principal de tu comercio.</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 gap-4">
+                          {promoImages.map((img, idx) => (
+                            <div key={idx} className="relative group aspect-video rounded-xl overflow-hidden border border-surface bg-surface">
+                              <img src={img} alt={`Banner ${idx + 1}`} className="w-full h-full object-cover" />
+                              <button
+                                onClick={() => setPromoImages(prev => prev.filter((_, i) => i !== idx))}
+                                className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Eliminar imagen"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+                          
+                          {promoImages.length < 5 && (
+                            <div className="aspect-video">
+                              <ImageUpload
+                                value=""
+                                onChange={(val) => setPromoImages(prev => [...prev, val])}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* YouTube Video */}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-dark mb-1">Video Destacado (YouTube)</label>
+                          <p className="text-xs text-muted mb-4">Pega el link de tu video de YouTube para mostrarlo a tus clientes.</p>
+                        </div>
+                        
+                        <input 
+                          type="text" 
+                          placeholder="Ej: https://www.youtube.com/watch?v=..."
+                          value={youtubeUrl}
+                          onChange={(e) => setYoutubeUrl(e.target.value)}
+                          className="w-full bg-surface border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10" 
+                        />
+                        
+                        {youtubeUrl && (
+                          <div className="aspect-video bg-black rounded-xl overflow-hidden mt-4">
+                            <iframe 
+                              width="100%" 
+                              height="100%" 
+                              src={`https://www.youtube.com/embed/${
+                                (() => {
+                                  const match = youtubeUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
+                                  return (match && match[2].length === 11) ? match[2] : '';
+                                })()
+                              }`} 
+                              title="YouTube video preview" 
+                              frameBorder="0" 
+                              allowFullScreen
+                            ></iframe>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
                 <div className="pt-6 border-t border-surface flex justify-end">
-                  <button className="bg-primary text-dark px-8 py-3 rounded-2xl font-medium flex items-center space-x-2 hover:bg-accent transition-all shadow-lg shadow-primary/20">
+                  <button 
+                    onClick={handleSaveSettings}
+                    className="bg-primary text-dark px-8 py-3 rounded-2xl font-medium flex items-center space-x-2 hover:bg-accent transition-all shadow-lg shadow-primary/20"
+                  >
                     <Save size={20} />
                     <span>Guardar Configuración</span>
                   </button>

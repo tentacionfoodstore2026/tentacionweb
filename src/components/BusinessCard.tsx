@@ -21,7 +21,7 @@ export const BusinessCard = ({ business }: { business: Business }) => {
           />
           <div className={`absolute top-4 left-4 px-2 py-1 rounded-2xl text-[10px] font-medium uppercase tracking-wider shadow-sm backdrop-blur-sm ${
             business.isOpen 
-              ? 'bg-primary/90 text-dark' 
+              ? 'bg-green-600 text-white' 
               : 'bg-red-500 text-white'
           }`}>
             {business.isOpen ? 'Abierto' : 'Cerrado'}

@@ -51,6 +51,9 @@ export interface Business {
   instagram?: string;
   facebook?: string;
   website?: string;
+  tiktokUrl?: string;
+  promoImages?: string[];
+  youtubeUrl?: string;
 }
 
 export interface ProductSize {

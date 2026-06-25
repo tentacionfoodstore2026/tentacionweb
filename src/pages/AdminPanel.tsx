@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Store, ShieldCheck, Search, MoreVertical, CheckCircle, XCircle, Trash2, Edit, Filter, Save, X, Image as ImageIcon, Clock, Truck, MapPin, Phone, Settings, Tag, Plus, Printer, Menu as MenuIcon, Calendar, CreditCard, Hash, User, Star, Mail, Info, ClipboardList, UtensilsCrossed, Bell, Send, DollarSign, TrendingUp, ShoppingBag, ChefHat, LayoutDashboard, Eye, EyeOff, Shield, Database, Upload, Sun, Moon, FileSpreadsheet, FileText, Download, FileUp, FileDown, ShieldAlert, Camera } from 'lucide-react';
+import { Users, Store, ShieldCheck, Search, MoreVertical, CheckCircle, XCircle, Trash2, Edit, Filter, Save, X, Image as ImageIcon, Clock, Truck, MapPin, Phone, Settings, Tag, Plus, Printer, Menu as MenuIcon, Calendar, CreditCard, Hash, User, Star, Mail, Info, ClipboardList, UtensilsCrossed, Bell, Send, DollarSign, TrendingUp, ShoppingBag, ChefHat, LayoutDashboard, Eye, EyeOff, Shield, Database, Upload, Sun, Moon, FileSpreadsheet, FileText, Download, FileUp, FileDown, ShieldAlert, Camera, Video } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -1443,7 +1443,10 @@ export const AdminPanel = () => {
           deliveryFee: b.delivery_fee,
           deliveryTime: b.delivery_time,
           isOpen: b.is_open,
-          openingHours: b.opening_hours
+          openingHours: b.opening_hours,
+          promoImages: b.promo_images || [],
+          youtubeUrl: b.youtube_url || '',
+          tiktokUrl: b.tiktok_url || ''
         }));
         setBusinesses(mappedBiz);
       }
@@ -1688,7 +1691,10 @@ export const AdminPanel = () => {
         instagram: currentBusiness.instagram || '',
         facebook: currentBusiness.facebook || '',
         website: currentBusiness.website || '',
-        opening_hours: currentBusiness.openingHours || []
+        opening_hours: currentBusiness.openingHours || [],
+        promo_images: currentBusiness.promoImages || [],
+        youtube_url: currentBusiness.youtubeUrl || '',
+        tiktok_url: currentBusiness.tiktokUrl || ''
       };
 
       let result;
@@ -1729,7 +1735,10 @@ export const AdminPanel = () => {
           deliveryFee: data.delivery_fee,
           deliveryTime: data.delivery_time,
           isOpen: data.is_open,
-          openingHours: data.opening_hours
+          openingHours: data.opening_hours,
+          promoImages: data.promo_images || [],
+          youtubeUrl: data.youtube_url || '',
+          tiktokUrl: data.tiktok_url || ''
         };
 
         if (currentBusiness.id) {
@@ -1861,7 +1870,10 @@ export const AdminPanel = () => {
         deliveryFee: data.delivery_fee,
         deliveryTime: data.delivery_time,
         isOpen: data.is_open,
-        openingHours: data.opening_hours
+        openingHours: data.opening_hours,
+        promoImages: data.promo_images || [],
+        youtubeUrl: data.youtube_url || '',
+        tiktokUrl: data.tiktok_url || ''
       };
       setBusinesses(businesses.map(b => b.id === id ? mapped : b));
     }
@@ -2748,6 +2760,8 @@ export const AdminPanel = () => {
                             banner: 'https://picsum.photos/seed/banner/1200/400',
                             whatsapp: '',
                             address: '',
+                            promoImages: [],
+                            youtubeUrl: '',
                             deliveryFee: 0,
                             deliveryTime: '30-45 min',
                             isOpen: true,
@@ -4599,6 +4613,73 @@ export const AdminPanel = () => {
                             onChange={e => setCurrentBusiness({ ...currentBusiness, facebook: e.target.value })}
                             className="w-full bg-white border-2 border-surface rounded-2xl px-5 py-3 focus:outline-none focus:border-primary/50 font-medium text-dark transition-all" 
                           />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-muted uppercase mb-2 ml-1">TikTok</label>
+                          <input 
+                            type="text" 
+                            placeholder="tiktok.com/@..."
+                            value={currentBusiness?.tiktokUrl || ''}
+                            onChange={e => setCurrentBusiness({ ...currentBusiness, tiktokUrl: e.target.value })}
+                            className="w-full bg-white border-2 border-surface rounded-2xl px-5 py-3 focus:outline-none focus:border-primary/50 font-medium text-dark transition-all" 
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <h4 className="text-[11px] font-medium text-muted uppercase tracking-[0.3em] flex items-center">
+                        <Video size={14} className="mr-3 text-primary" />
+                        Multimedia (Carrusel y Video)
+                      </h4>
+                      <div className="bg-surface/30 p-6 rounded-2xl border border-surface space-y-6">
+                        <div>
+                          <label className="block text-[10px] font-bold text-muted uppercase mb-2 ml-1">Video de YouTube</label>
+                          <input 
+                            type="text" 
+                            placeholder="Ej: https://youtube.com/watch?v=..."
+                            value={currentBusiness?.youtubeUrl || ''}
+                            onChange={e => setCurrentBusiness({ ...currentBusiness, youtubeUrl: e.target.value })}
+                            className="w-full bg-white border-2 border-surface rounded-2xl px-5 py-3 focus:outline-none focus:border-primary/50 font-medium text-dark transition-all" 
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-[10px] font-bold text-muted uppercase mb-2 ml-1 flex justify-between">
+                            <span>Banner Rotativo</span>
+                            <span className="text-primary">{currentBusiness?.promoImages?.length || 0}/5</span>
+                          </label>
+                          <div className="space-y-3">
+                            {currentBusiness?.promoImages?.map((img, idx) => (
+                              <div key={idx} className="relative group aspect-video rounded-xl overflow-hidden border border-surface bg-white shadow-sm">
+                                <img src={img} alt={`Banner ${idx + 1}`} className="w-full h-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => setCurrentBusiness({
+                                    ...currentBusiness,
+                                    promoImages: currentBusiness.promoImages?.filter((_, i) => i !== idx)
+                                  })}
+                                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                                  title="Eliminar imagen"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ))}
+                            
+                            {(!currentBusiness?.promoImages || currentBusiness.promoImages.length < 5) && (
+                              <div className="aspect-video rounded-xl overflow-hidden">
+                                <ImageUpload
+                                  label="Añadir Imagen"
+                                  value=""
+                                  onChange={(val) => setCurrentBusiness({
+                                    ...currentBusiness,
+                                    promoImages: [...(currentBusiness?.promoImages || []), val]
+                                  })}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

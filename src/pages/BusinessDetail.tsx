@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Star, Clock, Truck, MapPin, ChevronLeft, Info, Phone, Instagram, Facebook, Map as MapIcon } from 'lucide-react';
+import { Star, Clock, Truck, MapPin, ChevronLeft, ChevronRight, Info, Phone, Instagram, Facebook, Map as MapIcon, Music } from 'lucide-react';
 import { ProductCard } from '../components/ProductCard';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -13,6 +13,17 @@ export const BusinessDetail = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+
+  useEffect(() => {
+    if (!business?.promoImages || business.promoImages.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setCurrentBannerIndex((prev) => (prev + 1) % business.promoImages!.length);
+    }, 4000);
+    
+    return () => clearInterval(interval);
+  }, [business?.promoImages]);
 
   useEffect(() => {
     const fetchBusinessAndProducts = async () => {
@@ -43,7 +54,9 @@ export const BusinessDetail = () => {
             deliveryFee: bizData.delivery_fee,
             deliveryTime: bizData.delivery_time,
             status: bizData.status,
-            openingHours: bizData.opening_hours || []
+            openingHours: bizData.opening_hours || [],
+            promoImages: bizData.promo_images || [],
+            youtubeUrl: bizData.youtube_url || ''
           } as Business);
         }
 
@@ -101,6 +114,12 @@ export const BusinessDetail = () => {
 
   if (!business) return <div>Negocio no encontrado</div>;
 
+  const getYoutubeVideoId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
 
   return (
     <div className="min-h-screen bg-surface pb-20">
@@ -119,7 +138,7 @@ export const BusinessDetail = () => {
         <div className="absolute top-20 right-4 sm:right-8">
           <div className={`px-4 py-2 rounded-2xl text-sm font-medium uppercase tracking-widest shadow-lg backdrop-blur-md border ${
             business.isOpen 
-              ? 'bg-primary/90 text-dark border-primary' 
+              ? 'bg-green-600 text-white border-green-600' 
               : 'bg-red-600 text-white border-red-700'
           }`}>
             {business.isOpen ? 'Abierto' : 'Cerrado'}
@@ -154,7 +173,7 @@ export const BusinessDetail = () => {
                   </div>
                   <div className={`px-2 py-1 rounded-2xl text-[10px] font-medium uppercase tracking-wider ${
                     business.isOpen 
-                      ? 'bg-primary/20 text-accent' 
+                      ? 'bg-green-600 text-white' 
                       : 'bg-red-600 text-white'
                   }`}>
                     {business.isOpen ? 'Abierto' : 'Cerrado'}
@@ -184,7 +203,46 @@ export const BusinessDetail = () => {
         {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
           {/* Menu Columns (70%) */}
-          <div className="lg:col-span-7 space-y-12">            {/* Categories & Products */}
+          <div className="lg:col-span-7 space-y-12">
+            {/* Promo Images Carousel */}
+            {business.promoImages && business.promoImages.length > 0 && (
+              <div className="relative h-48 sm:h-64 rounded-2xl overflow-hidden shadow-lg group">
+                <img 
+                  src={business.promoImages[currentBannerIndex]} 
+                  alt="Promoción" 
+                  className="w-full h-full object-cover transition-opacity duration-500"
+                />
+                
+                {business.promoImages.length > 1 && (
+                  <>
+                    <button 
+                      onClick={() => setCurrentBannerIndex((prev) => (prev - 1 + business.promoImages!.length) % business.promoImages!.length)}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <ChevronLeft size={24} />
+                    </button>
+                    <button 
+                      onClick={() => setCurrentBannerIndex((prev) => (prev + 1) % business.promoImages!.length)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <ChevronRight size={24} />
+                    </button>
+                    
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
+                      {business.promoImages.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentBannerIndex(idx)}
+                          className={`w-2 h-2 rounded-full transition-all ${currentBannerIndex === idx ? 'bg-primary w-4' : 'bg-white/60 hover:bg-white'}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Categories & Products */}
             <div className="lg:col-span-12">
               <div className="sticky top-20 z-20 bg-surface/80 backdrop-blur-md py-4 -mx-4 px-4 sm:mx-0 sm:px-0">
                 <div className="flex items-center space-x-4 overflow-x-auto pb-2 scrollbar-hide">
@@ -265,6 +323,24 @@ export const BusinessDetail = () => {
               </div>
             </div>
 
+            {/* YouTube Video */}
+            {business.youtubeUrl && getYoutubeVideoId(business.youtubeUrl) && (
+              <div className="bg-surface rounded-2xl p-6 shadow-sm border border-surface space-y-4">
+                <h3 className="text-lg font-medium text-dark border-b border-surface pb-4">Conoce nuestro local</h3>
+                <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-inner">
+                  <iframe 
+                    width="100%" 
+                    height="100%" 
+                    src={`https://www.youtube.com/embed/${getYoutubeVideoId(business.youtubeUrl)}`} 
+                    title="YouTube video player" 
+                    frameBorder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowFullScreen
+                  ></iframe>
+                </div>
+              </div>
+            )}
+
             {/* Contact Info */}
             <div className="bg-surface rounded-2xl p-6 shadow-sm border border-surface space-y-6">
               <h3 className="text-lg font-medium text-dark border-b border-surface pb-4">Información de Contacto</h3>
@@ -327,6 +403,16 @@ export const BusinessDetail = () => {
                       className="p-2 bg-surface rounded-2xl text-muted hover:text-accent hover:bg-primary/10 transition-all"
                     >
                       <Facebook size={20} />
+                    </a>
+                  )}
+                  {business.tiktokUrl && (
+                    <a 
+                      href={business.tiktokUrl.startsWith('http') ? business.tiktokUrl : `https://${business.tiktokUrl}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="p-2 bg-surface rounded-2xl text-muted hover:text-accent hover:bg-primary/10 transition-all"
+                    >
+                      <Music size={20} />
                     </a>
                   )}
                   {business.website && (
