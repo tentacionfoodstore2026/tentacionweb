@@ -375,8 +375,27 @@ export const Checkout = () => {
       }
       
       // Extras
-      if (i.selectedExtras && i.selectedExtras.length > 0) {
-        const extrasText = i.selectedExtras.map((e: any) => e.optionName || e.name || String(e)).join(', ');
+      let filteredExtras = i.selectedExtras || [];
+      if (i.selected_modifiers && i.selectedExtras) {
+        const selectedModifierNames = new Set<string>();
+        Object.values(i.selected_modifiers).forEach((opts: any) => {
+          if (Array.isArray(opts)) {
+            opts.forEach(o => {
+              const name = typeof o === 'string' ? o : (o.name || o);
+              if (name) selectedModifierNames.add(name.toString().trim().toLowerCase());
+            });
+          } else if (typeof opts === 'string') {
+            opts.split(',').forEach(o => selectedModifierNames.add(o.trim().toLowerCase()));
+          }
+        });
+        filteredExtras = i.selectedExtras.filter((e: any) => {
+          const name = (e.optionName || e.name || '').toString().trim().toLowerCase();
+          return !selectedModifierNames.has(name);
+        });
+      }
+      
+      if (filteredExtras.length > 0) {
+        const extrasText = filteredExtras.map((e: any) => e.optionName || e.name || String(e)).join(', ');
         text += `\n  * Extras: ${extrasText}`;
       }
 
@@ -436,13 +455,33 @@ export const Checkout = () => {
                   )}
 
                   {/* Extras display */}
-                  {item.selectedExtras && item.selectedExtras.length > 0 && (
-                    <div className="mt-1">
-                      <p className="text-[10px] text-muted leading-tight">
-                        <span className="font-bold uppercase">EXTRAS:</span> {item.selectedExtras.map((e: any) => e.optionName || e.name || String(e)).join(', ')}
-                      </p>
-                    </div>
-                  )}
+                  {item.selectedExtras && item.selectedExtras.length > 0 && (() => {
+                    const selectedModifierNames = new Set<string>();
+                    if (item.selected_modifiers) {
+                      Object.values(item.selected_modifiers).forEach((opts: any) => {
+                        if (Array.isArray(opts)) {
+                          opts.forEach(o => {
+                            const name = typeof o === 'string' ? o : (o.name || o);
+                            if (name) selectedModifierNames.add(name.toString().trim().toLowerCase());
+                          });
+                        } else if (typeof opts === 'string') {
+                          opts.split(',').forEach(o => selectedModifierNames.add(o.trim().toLowerCase()));
+                        }
+                      });
+                    }
+                    const filteredExtras = item.selectedExtras.filter((e: any) => {
+                      const name = (e.optionName || e.name || '').toString().trim().toLowerCase();
+                      return !selectedModifierNames.has(name);
+                    });
+                    if (filteredExtras.length === 0) return null;
+                    return (
+                      <div className="mt-1">
+                        <p className="text-[10px] text-muted leading-tight">
+                          <span className="font-bold uppercase">EXTRAS:</span> {filteredExtras.map((e: any) => e.optionName || e.name || String(e)).join(', ')}
+                        </p>
+                      </div>
+                    );
+                  })()}
 
                   {item.notes && (
                     <p className="text-[10px] text-accent italic mt-1 leading-tight">"{item.notes}"</p>
@@ -660,11 +699,31 @@ export const Checkout = () => {
                           })}
                         </div>
                       )}
-                      {item.selectedExtras && item.selectedExtras.length > 0 && (
-                        <div className="text-[10px] text-muted mt-0.5">
-                          <span className="font-medium">Extras:</span> {item.selectedExtras.map((e: any) => e.optionName).join(', ')}
-                        </div>
-                      )}
+                      {item.selectedExtras && item.selectedExtras.length > 0 && (() => {
+                        const selectedModifierNames = new Set<string>();
+                        if (item.selected_modifiers) {
+                          Object.values(item.selected_modifiers).forEach((opts: any) => {
+                            if (Array.isArray(opts)) {
+                              opts.forEach(o => {
+                                const name = typeof o === 'string' ? o : (o.name || o);
+                                if (name) selectedModifierNames.add(name.toString().trim().toLowerCase());
+                              });
+                            } else if (typeof opts === 'string') {
+                              opts.split(',').forEach(o => selectedModifierNames.add(o.trim().toLowerCase()));
+                            }
+                          });
+                        }
+                        const filteredExtras = item.selectedExtras.filter((e: any) => {
+                          const name = (e.optionName || e.name || '').toString().trim().toLowerCase();
+                          return !selectedModifierNames.has(name);
+                        });
+                        if (filteredExtras.length === 0) return null;
+                        return (
+                          <div className="text-[10px] text-muted mt-0.5">
+                            <span className="font-medium">Extras:</span> {filteredExtras.map((e: any) => e.optionName).join(', ')}
+                          </div>
+                        );
+                      })()}
                       {item.selectedSize && (
                         <div className="text-[10px] text-primary font-medium mt-0.5">
                           Tamaño: {item.selectedSize.name}

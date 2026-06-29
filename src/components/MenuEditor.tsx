@@ -349,7 +349,7 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!window.confirm('¿Estás seguro de importar el menú? Esto podría duplicar elementos si ya existen. Se recomienda revisar los datos después de la importación.')) {
+    if (!window.confirm('¿Estás seguro de importar el menú? Los elementos existentes con el mismo nombre o ID se actualizarán con los datos del Excel, y los nuevos se agregarán.')) {
       e.target.value = '';
       return;
     }
@@ -361,71 +361,204 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
 
+        // 1. Obtener datos existentes en la base de datos para este comercio
+        const { data: existingCategories, error: catsFetchError } = await supabase
+          .from('product_categories')
+          .select('*')
+          .eq('business_id', businessId);
+
+        if (catsFetchError) throw catsFetchError;
+
+        const { data: existingProducts, error: prodsFetchError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('business_id', businessId);
+
+        if (prodsFetchError) throw prodsFetchError;
+
         // Import Categories
         const wsCats = wb.Sheets["Categorias"];
         const catsJson = XLSX.utils.sheet_to_json(wsCats) as any[];
         
-        // Map to store new IDs for re-linking
+        // Map to store Excel ID -> DB ID
         const categoryIdMap: Record<string, string> = {};
+        let categoriesCreated = 0;
+        let categoriesUpdated = 0;
+
+        const isValidUuid = (uuid: string) => 
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
 
         for (const row of catsJson) {
+          const excelId = row['ID']?.toString();
+          const catName = row['Nombre']?.toString().trim();
+          
+          if (!catName) continue;
+
+          // Buscar coincidencia por ID o por Nombre
+          const existingCat = existingCategories?.find(c => 
+            (excelId && isValidUuid(excelId) && c.id === excelId) || 
+            (c.name.trim().toLowerCase() === catName.toLowerCase())
+          );
+
           const catData = {
             business_id: businessId,
-            name: row['Nombre'],
-            order_index: row['Orden'] || 0,
-            parent_id: null // Will update parents in second pass
+            name: catName,
+            order_index: Number(row['Orden']) || 0,
+            parent_id: null // Se actualizará en la segunda pasada
           };
 
-          const { data, error } = await supabase.from('product_categories').insert(catData).select().single();
-          if (error) console.error('Error importing category:', error);
-          if (data) {
-            categoryIdMap[row['ID']] = data.id;
+          if (existingCat) {
+            // Actualizar existente
+            const { data, error } = await supabase
+              .from('product_categories')
+              .update(catData)
+              .eq('id', existingCat.id)
+              .select()
+              .single();
+
+            if (error) {
+              console.error('Error al actualizar categoría:', error);
+            } else if (data) {
+              categoryIdMap[excelId || catName] = data.id;
+              categoriesUpdated++;
+            }
+          } else {
+            // Insertar nueva
+            const insertData: any = { ...catData };
+            // Si el ID del Excel es un UUID válido y no colisiona, lo preservamos
+            if (excelId && isValidUuid(excelId)) {
+              insertData.id = excelId;
+            }
+
+            const { data, error } = await supabase
+              .from('product_categories')
+              .insert(insertData)
+              .select()
+              .single();
+
+            if (error) {
+              console.error('Error al crear categoría:', error);
+            } else if (data) {
+              categoryIdMap[excelId || catName] = data.id;
+              categoriesCreated++;
+            }
           }
         }
 
         // Second pass for category parents
         for (const row of catsJson) {
-          if (row['ID Padre'] && categoryIdMap[row['ID Padre']] && categoryIdMap[row['ID']]) {
-            await supabase.from('product_categories')
-              .update({ parent_id: categoryIdMap[row['ID Padre']] })
-              .eq('id', categoryIdMap[row['ID']]);
+          const excelId = row['ID']?.toString();
+          const excelParentId = row['ID Padre']?.toString();
+          
+          if (excelParentId) {
+            const realCatId = categoryIdMap[excelId || row['Nombre']?.toString().trim()];
+            const realParentId = categoryIdMap[excelParentId] || (isValidUuid(excelParentId) ? excelParentId : null);
+
+            if (realCatId && realParentId) {
+              await supabase
+                .from('product_categories')
+                .update({ parent_id: realParentId })
+                .eq('id', realCatId);
+            }
           }
         }
 
         // Import Products
         const wsProds = wb.Sheets["Productos"];
         const prodsJson = XLSX.utils.sheet_to_json(wsProds) as any[];
+        let productsCreated = 0;
+        let productsUpdated = 0;
+        let productErrors = 0;
 
         for (const row of prodsJson) {
-          const newCategoryId = categoryIdMap[row['ID Categoria']] || row['ID Categoria'];
+          const excelId = row['ID']?.toString();
+          const prodName = row['Nombre']?.toString().trim();
+          
+          if (!prodName) continue;
+
+          const excelCatId = row['ID Categoria']?.toString();
+          const finalCategoryId = categoryIdMap[excelCatId] || (excelCatId && isValidUuid(excelCatId) ? excelCatId : null);
           
           let sizes = [];
-          try { sizes = JSON.parse(row['Tamanos (JSON)'] || '[]'); } catch (e) {}
+          try { 
+            sizes = typeof row['Tamanos (JSON)'] === 'string' 
+              ? JSON.parse(row['Tamanos (JSON)'] || '[]') 
+              : (row['Tamanos (JSON)'] || []); 
+          } catch (e) {}
           
           let extras = [];
-          try { extras = JSON.parse(row['Extras (JSON)'] || '[]'); } catch (e) {}
+          try { 
+            extras = typeof row['Extras (JSON)'] === 'string' 
+              ? JSON.parse(row['Extras (JSON)'] || '[]') 
+              : (row['Extras (JSON)'] || []); 
+          } catch (e) {}
+
+          // Buscar si el producto ya existe en este comercio (por ID o por Nombre + Categoría)
+          const existingProd = existingProducts?.find(p => 
+            (excelId && isValidUuid(excelId) && p.id === excelId) || 
+            (p.name.trim().toLowerCase() === prodName.toLowerCase() && p.category_id === finalCategoryId)
+          );
 
           const prodData = {
             business_id: businessId,
-            category_id: newCategoryId,
-            name: row['Nombre'],
+            category_id: finalCategoryId,
+            name: prodName,
             description: row['Descripcion'] || '',
-            price: Number(row['Precio']),
+            price: Number(row['Precio']) || 0,
             image: row['Imagen URL'] || '',
-            available: row['Disponible'] === 'SI',
+            available: row['Disponible'] === 'SI' || row['Disponible'] === true || row['Disponible'] === 'true',
             sizes: sizes,
             extras: extras
           };
 
-          const { error } = await supabase.from('products').insert(prodData);
-          if (error) console.error('Error importing product:', error);
+          if (existingProd) {
+            // Actualizar producto existente
+            const { error } = await supabase
+              .from('products')
+              .update(prodData)
+              .eq('id', existingProd.id);
+
+            if (error) {
+              console.error(`Error al actualizar producto "${prodName}":`, error);
+              productErrors++;
+            } else {
+              productsUpdated++;
+            }
+          } else {
+            // Insertar nuevo producto
+            const insertData: any = { ...prodData };
+            if (excelId && isValidUuid(excelId)) {
+              insertData.id = excelId;
+            }
+
+            const { error } = await supabase
+              .from('products')
+              .insert(insertData);
+
+            if (error) {
+              console.error(`Error al crear producto "${prodName}":`, error);
+              productErrors++;
+            } else {
+              productsCreated++;
+            }
+          }
         }
 
         await fetchMenuData();
-        alert('Menú importado correctamente');
-      } catch (error) {
+        
+        let summaryMessage = `Importación completada con éxito:\n\n`;
+        summaryMessage += `• Categorías creadas: ${categoriesCreated}\n`;
+        summaryMessage += `• Categorías actualizadas: ${categoriesUpdated}\n`;
+        summaryMessage += `• Productos creados: ${productsCreated}\n`;
+        summaryMessage += `• Productos actualizados: ${productsUpdated}\n`;
+        if (productErrors > 0) {
+          summaryMessage += `• Errores en productos: ${productErrors} (revisar consola para detalles)\n`;
+        }
+        
+        alert(summaryMessage);
+      } catch (error: any) {
         console.error('Error processing excel:', error);
-        alert('Error al procesar el archivo Excel. Asegúrate de que el formato sea correcto.');
+        alert(`Error al procesar el archivo Excel: ${error.message || error}`);
       } finally {
         setLoading(false);
         e.target.value = '';

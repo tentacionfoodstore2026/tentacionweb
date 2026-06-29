@@ -282,11 +282,31 @@ export const Navbar = () => {
                             })}
                           </div>
                         )}
-                        {item.selectedExtras && item.selectedExtras.length > 0 && (
-                          <div className="text-[10px] text-muted mt-0.5">
-                            <span className="font-medium">Extras:</span> {item.selectedExtras.map((e: any) => e.optionName).join(', ')}
-                          </div>
-                        )}
+                        {item.selectedExtras && item.selectedExtras.length > 0 && (() => {
+                          const selectedModifierNames = new Set<string>();
+                          if (item.selected_modifiers) {
+                            Object.values(item.selected_modifiers).forEach((opts: any) => {
+                              if (Array.isArray(opts)) {
+                                opts.forEach(o => {
+                                  const name = typeof o === 'string' ? o : (o.name || o);
+                                  if (name) selectedModifierNames.add(name.toString().trim().toLowerCase());
+                                });
+                              } else if (typeof opts === 'string') {
+                                opts.split(',').forEach(o => selectedModifierNames.add(o.trim().toLowerCase()));
+                              }
+                            });
+                          }
+                          const filteredExtras = item.selectedExtras.filter((e: any) => {
+                            const name = (e.optionName || e.name || '').toString().trim().toLowerCase();
+                            return !selectedModifierNames.has(name);
+                          });
+                          if (filteredExtras.length === 0) return null;
+                          return (
+                            <div className="text-[10px] text-muted mt-0.5">
+                              <span className="font-medium">Extras:</span> {filteredExtras.map((e: any) => e.optionName).join(', ')}
+                            </div>
+                          );
+                        })()}
                         {item.selectedSize && (
                           <div className="text-[10px] text-primary font-medium mt-0.5">
                             Tamaño: {item.selectedSize.name}

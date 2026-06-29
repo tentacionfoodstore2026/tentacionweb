@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Star, Clock, Truck, MapPin, ChevronLeft, ChevronRight, Info, Phone, Instagram, Facebook, Map as MapIcon, Music } from 'lucide-react';
+import { Star, Clock, Truck, MapPin, ChevronLeft, ChevronRight, Info, Phone, Instagram, Facebook, Map as MapIcon, Music, Search, X } from 'lucide-react';
 import { ProductCard } from '../components/ProductCard';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -14,6 +14,7 @@ export const BusinessDetail = () => {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!business?.promoImages || business.promoImages.length <= 1) return;
@@ -120,6 +121,11 @@ export const BusinessDetail = () => {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
+  // Filtrar productos según la búsqueda
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   return (
     <div className="min-h-screen bg-surface pb-20">
@@ -244,70 +250,116 @@ export const BusinessDetail = () => {
 
             {/* Categories & Products */}
             <div className="lg:col-span-12">
-              <div className="sticky top-20 z-20 bg-surface/80 backdrop-blur-md py-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="sticky top-20 z-20 bg-surface/80 backdrop-blur-md py-4 -mx-4 px-4 sm:mx-0 sm:px-0 space-y-4">
+                {/* Horizontal Sliding Categories */}
                 <div className="flex items-center space-x-4 overflow-x-auto pb-2 scrollbar-hide">
-                  {categories.filter(c => !c.parentId).map((category) => (
+                  {categories.filter(c => !c.parentId).map((category) => {
+                    const hasProducts = filteredProducts.some(p => 
+                      p.categoryId === category.id || 
+                      categories.filter(c => c.parentId === category.id).some(sub => p.categoryId === sub.id)
+                    );
+                    if (searchQuery && !hasProducts) return null;
+
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => {
+                          const element = document.getElementById(category.id);
+                          if (element) {
+                            window.scrollTo({
+                              top: element.getBoundingClientRect().top + window.pageYOffset - 100,
+                              behavior: 'smooth'
+                            });
+                          }
+                        }}
+                        className="whitespace-nowrap px-6 py-2 rounded-2xl bg-surface border-2 border-primary text-accent font-medium hover:bg-primary hover:text-dark transition-all shadow-sm"
+                      >
+                        {category.name}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Buscador */}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Search className="h-5 w-5 text-muted" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="¿Qué te apetece hoy? Busca platos, bebidas..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="block w-full pl-12 pr-10 py-3 bg-white border border-dark/10 rounded-2xl text-dark placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm"
+                  />
+                  {searchQuery && (
                     <button
-                      key={category.id}
-                      onClick={() => {
-                        const element = document.getElementById(category.id);
-                        if (element) {
-                          window.scrollTo({
-                            top: element.getBoundingClientRect().top + window.pageYOffset - 100,
-                            behavior: 'smooth'
-                          });
-                        }
-                      }}
-                      className="whitespace-nowrap px-6 py-2 rounded-2xl bg-surface border-2 border-primary text-accent font-medium hover:bg-primary hover:text-dark transition-all shadow-sm"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-muted hover:text-dark transition-colors"
                     >
-                      {category.name}
+                      <X size={18} />
                     </button>
-                  ))}
+                  )}
                 </div>
               </div>
 
               <div className="space-y-12">
-                {categories.filter(c => !c.parentId).map((rootCategory) => {
-                  const subCats = categories.filter(c => c.parentId === rootCategory.id);
-                  const rootProducts = products.filter(p => p.categoryId === rootCategory.id);
-                  
-                  return (
-                    <section key={rootCategory.id} id={rootCategory.id} className="scroll-mt-32">
-                      <h2 className="text-3xl font-medium text-dark mb-8 flex items-center space-x-4">
-                        <span className="w-2 h-10 bg-primary rounded-full shadow-lg shadow-primary/40" />
-                        <span>{rootCategory.name}</span>
-                      </h2>
+                {filteredProducts.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-2xl border border-dark/5 shadow-sm space-y-3">
+                    <p className="text-lg text-muted font-medium">No se encontraron productos que coincidan con tu búsqueda</p>
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="px-4 py-2 bg-primary text-dark font-medium rounded-xl hover:bg-primary/90 transition-all text-sm"
+                    >
+                      Limpiar búsqueda
+                    </button>
+                  </div>
+                ) : (
+                  categories.filter(c => !c.parentId).map((rootCategory) => {
+                    const subCats = categories.filter(c => c.parentId === rootCategory.id);
+                    const rootProducts = filteredProducts.filter(p => p.categoryId === rootCategory.id);
+                    const hasSubProducts = subCats.some(sub => filteredProducts.some(p => p.categoryId === sub.id));
+                    
+                    if (rootProducts.length === 0 && !hasSubProducts) return null;
+                    
+                    return (
+                      <section key={rootCategory.id} id={rootCategory.id} className="scroll-mt-32">
+                        <h2 className="text-3xl font-medium text-dark mb-8 flex items-center space-x-4">
+                          <span className="w-2 h-10 bg-primary rounded-full shadow-lg shadow-primary/40" />
+                          <span>{rootCategory.name}</span>
+                        </h2>
 
-                      {/* Products in Root Category */}
-                      {rootProducts.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                          {rootProducts.map((product) => (
-                            <ProductCard key={product.id} product={product} />
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Subcategories */}
-                      {subCats.map(sub => {
-                        const subProducts = products.filter(p => p.categoryId === sub.id);
-                        if (subProducts.length === 0) return null;
-                        return (
-                          <div key={sub.id} className="ml-4 mb-10 border-l-2 border-surface pl-6">
-                            <h3 className="text-xl font-medium text-muted mb-6 flex items-center gap-2">
-                              <span className="w-1.5 h-6 bg-accent/30 rounded-full" />
-                              {sub.name}
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {subProducts.map((product) => (
-                                <ProductCard key={product.id} product={product} />
-                              ))}
-                            </div>
+                        {/* Products in Root Category */}
+                        {rootProducts.length > 0 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            {rootProducts.map((product) => (
+                              <ProductCard key={product.id} product={product} />
+                            ))}
                           </div>
-                        );
-                      })}
-                    </section>
-                  );
-                })}
+                        )}
+
+                        {/* Subcategories */}
+                        {subCats.map(sub => {
+                          const subProducts = filteredProducts.filter(p => p.categoryId === sub.id);
+                          if (subProducts.length === 0) return null;
+                          return (
+                            <div key={sub.id} className="ml-4 mb-10 border-l-2 border-surface pl-6">
+                              <h3 className="text-xl font-medium text-muted mb-6 flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-accent/30 rounded-full" />
+                                {sub.name}
+                              </h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {subProducts.map((product) => (
+                                  <ProductCard key={product.id} product={product} />
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </section>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
