@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore, Role } from '../store/useStore';
+import { useAuthStore } from '../store/useStore';
 import { motion } from 'motion/react';
 import { Mail, Lock, User as UserIcon, ArrowRight, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -10,7 +10,6 @@ export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<Role>('user');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -28,7 +27,7 @@ export const Login = () => {
           options: {
             data: {
               name,
-              role,
+              role: 'user', // Always default to 'user'; role is assigned server-side
             }
           }
         });

@@ -58,20 +58,20 @@ export const Home = () => {
     const fetchBusinesses = async () => {
       setFetchError(null);
       try {
-        console.log('[Home] Fetching businesses from Supabase...');
+        if ((import.meta as any).env.DEV) console.log('[Home] Fetching businesses from Supabase...');
         const { data, error } = await supabase
           .from('businesses')
           .select('*');
         
         if (error) {
-          console.error('[Home] Supabase error:', error.code, error.message, error.hint);
+          if ((import.meta as any).env.DEV) console.error('[Home] Supabase error:', error.code, error.message, error.hint);
           throw error;
         }
         
-        console.log(`[Home] Supabase returned ${data?.length ?? 0} businesses total`);
+        if ((import.meta as any).env.DEV) console.log(`[Home] Supabase returned ${data?.length ?? 0} businesses total`);
 
         if (!data || data.length === 0) {
-          console.warn('[Home] No businesses found — run supabase-rls-fixes.sql in your Supabase SQL Editor');
+          if ((import.meta as any).env.DEV) console.warn('[Home] No businesses found — run supabase-rls-fixes.sql in your Supabase SQL Editor');
         }
 
         // Map snake_case to camelCase and handle potentially null fields
@@ -99,10 +99,10 @@ export const Home = () => {
         // Extract unique categories dynamically from all fetched businesses
         const uniqueCategories = ['Todos', ...Array.from(new Set(formattedData.map(b => b.category)))].filter(Boolean);
         setCategories(uniqueCategories);
-        console.log('[Home] Dynamic categories:', uniqueCategories);
+        if ((import.meta as any).env.DEV) console.log('[Home] Dynamic categories:', uniqueCategories);
 
       } catch (err: any) {
-        console.error('[Home] Critical error fetching businesses:', err);
+        if ((import.meta as any).env.DEV) console.error('[Home] Critical error fetching businesses:', err);
         setFetchError(err?.message || 'Error de conexión con Supabase');
       } finally {
         setLoading(false);

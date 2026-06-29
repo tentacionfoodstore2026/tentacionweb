@@ -144,7 +144,7 @@ const AuthHandler = () => {
     }
     const isSuperAdminEmail = email.toLowerCase() === 'joseluisquiroga76@gmail.com';
     try {
-      console.log('[Auth] Fetching profile for:', email);
+      if ((import.meta as any).env.DEV) console.log('[Auth] Fetching profile for:', email);
       let { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -153,7 +153,7 @@ const AuthHandler = () => {
 
       if (error && error.code === 'PGRST116') {
         // Profile doesn't exist yet (trigger may not have run), create it
-        console.log('[Auth] Profile not found, creating...');
+        if ((import.meta as any).env.DEV) console.log('[Auth] Profile not found, creating...');
         const { data: newData, error: insertError } = await supabase
           .from('profiles')
           .insert({
@@ -166,7 +166,7 @@ const AuthHandler = () => {
           .single();
         
         if (insertError) {
-          console.error('[Auth] Error creating profile (RLS policy may be missing):', insertError);
+          if ((import.meta as any).env.DEV) console.error('[Auth] Error creating profile (RLS policy may be missing):', insertError);
           // Fallback: set user from auth metadata only
           setUser({
             id: userId,
@@ -178,17 +178,17 @@ const AuthHandler = () => {
           return;
         }
         data = newData;
-        console.log('[Auth] Profile created successfully');
+        if ((import.meta as any).env.DEV) console.log('[Auth] Profile created successfully');
       } else if (error) {
-        console.error('[Auth] Error fetching profile (check RLS SELECT policy):', error);
+        if ((import.meta as any).env.DEV) console.error('[Auth] Error fetching profile (check RLS SELECT policy):', error);
         throw error;
       } else {
-        console.log('[Auth] Profile found:', data?.role);
+        if ((import.meta as any).env.DEV) console.log('[Auth] Profile found:', data?.role);
       }
 
       // Auto-upgrade to super_admin if email matches but role is wrong
       if (data && isSuperAdminEmail && data.role !== 'super_admin') {
-        console.log('[Auth] Upgrading to super_admin...');
+        if ((import.meta as any).env.DEV) console.log('[Auth] Upgrading to super_admin...');
         const { data: updatedData, error: updateError } = await supabase
           .from('profiles')
           .update({ role: 'super_admin' })
@@ -199,7 +199,7 @@ const AuthHandler = () => {
         if (!updateError && updatedData) {
           data = updatedData;
         } else if (updateError) {
-          console.error('[Auth] Error upgrading to super_admin:', updateError);
+          if ((import.meta as any).env.DEV) console.error('[Auth] Error upgrading to super_admin:', updateError);
           data.role = 'super_admin';
         }
       }
@@ -207,7 +207,7 @@ const AuthHandler = () => {
       if (data) {
         // Check if account is inactive
         if (data.status === 'inactive') {
-          console.warn('[Auth] Account is inactive, logging out');
+          if ((import.meta as any).env.DEV) console.warn('[Auth] Account is inactive, logging out');
           await supabase.auth.signOut();
           setUser(null);
           alert('Tu cuenta ha sido desactivada. Por favor, contacta con el administrador.');
@@ -226,7 +226,7 @@ const AuthHandler = () => {
         });
       }
     } catch (error) {
-      console.error('[Auth] Critical error in fetchProfile:', error);
+      if ((import.meta as any).env.DEV) console.error('[Auth] Critical error in fetchProfile:', error);
       // Fallback for super admin email
       if (isSuperAdminEmail) {
         setUser({

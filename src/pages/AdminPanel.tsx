@@ -1431,13 +1431,13 @@ export const AdminPanel = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      console.log('[AdminPanel] Fetching data from Supabase...');
+      if ((import.meta as any).env.DEV) console.log('[AdminPanel] Fetching data from Supabase...');
       // Fetch Businesses
       const { data: bizData, error: bizError } = await supabase.from('businesses').select('*');
       if (bizError) console.error('[AdminPanel] Error fetching businesses:', bizError);
       
       if (bizData) {
-        console.log(`[AdminPanel] Fetched ${bizData.length} businesses.`);
+        if ((import.meta as any).env.DEV) console.log(`[AdminPanel] Fetched ${bizData.length} businesses.`);
         const mappedBiz = bizData.map(b => ({
           ...b,
           deliveryFee: b.delivery_fee,
@@ -1512,12 +1512,12 @@ export const AdminPanel = () => {
         .order('created_at', { ascending: false });
       if (orderError) console.error('[AdminPanel] Error fetching orders:', orderError);
       if (orderData) {
-        console.log(`[AdminPanel] Fetched ${orderData.length} orders.`);
+        if ((import.meta as any).env.DEV) console.log(`[AdminPanel] Fetched ${orderData.length} orders.`);
         setOrders(orderData);
       }
 
       // Fetch Portal Settings
-      console.log('[AdminPanel] Fetching portal settings...');
+      if ((import.meta as any).env.DEV) console.log('[AdminPanel] Fetching portal settings...');
       const { data: settingsData, error: settingsError } = await supabase
         .from('portal_settings')
         .select('*')
@@ -1525,7 +1525,7 @@ export const AdminPanel = () => {
         .single();
       
       if (settingsError) {
-        console.warn('[AdminPanel] Could not fetch portal settings (table might be missing):', settingsError.message);
+        if ((import.meta as any).env.DEV) console.warn('[AdminPanel] Could not fetch portal settings (table might be missing):', settingsError.message);
       } else if (settingsData) {
         setPortalSettings(settingsData);
         useAuthStore.getState().setPortalSettings(settingsData);
@@ -1569,7 +1569,7 @@ export const AdminPanel = () => {
     try {
       setIsSaving(true);
       // Aquí iría la lógica de envío real (OneSignal, FCM, etc.)
-      console.log('Enviando notificación:', notificationForm);
+      if ((import.meta as any).env.DEV) console.log('Enviando notificación:', notificationForm);
       
       // Simulación de delay
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -1594,7 +1594,7 @@ export const AdminPanel = () => {
   const handleSavePortalSettings = async () => {
     try {
       setIsSaving(true);
-      console.log('[AdminPanel] Saving portal settings:', portalSettings);
+      if ((import.meta as any).env.DEV) console.log('[AdminPanel] Saving portal settings:', portalSettings);
       
       let finalLogoUrl = portalSettings.logo_url;
       let finalFaviconUrl = portalSettings.favicon_url;
@@ -1648,7 +1648,7 @@ export const AdminPanel = () => {
     try {
       if (e) e.preventDefault();
       
-      console.log('DEBUG: Iniciando proceso de guardado...');
+      if ((import.meta as any).env.DEV) console.log('DEBUG: Iniciando proceso de guardado...');
       
       if (!currentBusiness) {
         alert('❌ Error: No hay datos del comercio.');
@@ -1662,7 +1662,7 @@ export const AdminPanel = () => {
 
       setIsSaving(true);
       
-      console.log('DEBUG: Procesando imágenes...');
+      if ((import.meta as any).env.DEV) console.log('DEBUG: Procesando imágenes...');
       // Subir imágenes grandes a Storage si es Base64
       let finalImageUrl = currentBusiness.image || 'https://picsum.photos/seed/food/800/600';
       let finalBannerUrl = currentBusiness.banner || 'https://picsum.photos/seed/banner/1200/400';
@@ -1674,7 +1674,7 @@ export const AdminPanel = () => {
         finalBannerUrl = await uploadImageToStorage(finalBannerUrl, 'images');
       }
       
-      console.log('DEBUG: Preparando datos para Supabase...');
+      if ((import.meta as any).env.DEV) console.log('DEBUG: Preparando datos para Supabase...');
       const businessData: any = {
         name: currentBusiness.name,
         description: currentBusiness.description || '',
@@ -1699,7 +1699,7 @@ export const AdminPanel = () => {
 
       let result;
       if (currentBusiness.id) {
-        console.log('DEBUG: Actualizando comercio ID:', currentBusiness.id);
+        if ((import.meta as any).env.DEV) console.log('DEBUG: Actualizando comercio ID:', currentBusiness.id);
         result = await supabase
           .from('businesses')
           .update(businessData)
@@ -1707,7 +1707,7 @@ export const AdminPanel = () => {
           .select()
           .single();
       } else {
-        console.log('DEBUG: Insertando nuevo comercio');
+        if ((import.meta as any).env.DEV) console.log('DEBUG: Insertando nuevo comercio');
         result = await supabase
           .from('businesses')
           .insert(businessData)
@@ -2331,7 +2331,7 @@ export const AdminPanel = () => {
 
     try {
       setIsSaving(true);
-      console.log('[AdminPanel] Saving banner:', currentBanner);
+      if ((import.meta as any).env.DEV) console.log('[AdminPanel] Saving banner:', currentBanner);
       
       let finalImageUrl = currentBanner.image_url;
       if (finalImageUrl?.startsWith('data:image')) {

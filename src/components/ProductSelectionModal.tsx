@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Plus, Minus, Check, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, ProductSize, useCartStore, useAuthStore } from '../store/useStore';
@@ -208,7 +209,7 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end sm:items-center sm:justify-center sm:p-4">
+    <div className="fixed inset-0 z-[100] flex flex-col justify-end sm:items-center sm:justify-start sm:pt-24 sm:p-4">
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -222,8 +223,8 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: "100%", opacity: 0 }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="relative bg-white w-full max-w-xl rounded-t-[32px] sm:rounded-[32px] flex flex-col shadow-2xl z-10"
-        style={{ maxHeight: 'calc(100dvh - 72px)', marginTop: 'auto' }}
+        className="relative bg-white w-full max-w-xl rounded-t-[20px] sm:rounded-[20px] flex flex-col shadow-2xl z-10"
+        style={{ maxHeight: 'calc(100dvh - 120px)', marginTop: 'auto' }}
       >
         {/* Close button — siempre visible en la esquina */}
         <button 
@@ -237,7 +238,7 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
         <div className="flex-1 overflow-y-auto custom-scrollbar">
 
           {/* Imagen del producto dentro del área scrolleable */}
-          <div className="relative h-48 sm:h-56 shrink-0 bg-[#F8F9FA] flex items-center justify-center p-6 overflow-hidden border-b border-surface rounded-t-[32px] sm:rounded-t-[32px]">
+          <div className="relative h-48 sm:h-56 shrink-0 bg-[#F8F9FA] flex items-center justify-center p-6 overflow-hidden border-b border-surface rounded-t-[20px] sm:rounded-t-[20px]">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent opacity-60" />
             <img 
               src={product.image || fallbackImage} 
@@ -403,7 +404,7 @@ export const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({ pr
         </div>
 
         {/* Footer fijo con cantidad y botón agregar */}
-        <div className="p-4 sm:p-5 bg-white border-t border-surface flex flex-col sm:flex-row items-stretch sm:items-center gap-4 rounded-b-[0px] sm:rounded-b-[32px]">
+        <div className="p-4 sm:p-5 bg-white border-t border-surface flex flex-col sm:flex-row items-stretch sm:items-center gap-4 rounded-b-[0px] sm:rounded-b-[20px]">
           <div className="flex items-center justify-between sm:justify-start gap-4 bg-[#F8F9FA] rounded-2xl p-1 border border-surface shadow-inner">
             <button 
               onClick={() => setQuantity(Math.max(1, quantity - 1))}

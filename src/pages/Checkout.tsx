@@ -293,10 +293,10 @@ export const Checkout = () => {
         };
       });
 
-      console.log('[Checkout] Inserting order items:', JSON.stringify(orderItems));
+      if ((import.meta as any).env.DEV) console.log('[Checkout] Inserting order items:', JSON.stringify(orderItems));
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) {
-        console.error('[Checkout] Error saving order items:', itemsError.message, itemsError.details, itemsError.hint);
+        if ((import.meta as any).env.DEV) console.error('[Checkout] Error saving order items:', itemsError.message, itemsError.details, itemsError.hint);
       }
 
       // 2.5 Log coupon usage in the audit table if applicable

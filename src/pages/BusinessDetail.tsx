@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Star, Clock, Truck, MapPin, ChevronLeft, ChevronRight, Info, Phone, Instagram, Facebook, Map as MapIcon, Music, Search, X } from 'lucide-react';
 import { ProductCard } from '../components/ProductCard';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
-import { Business, Product, ProductCategory } from '../store/useStore';
+import { Business, Product, ProductCategory, useAuthStore } from '../store/useStore';
 import { isBusinessCurrentlyOpen } from '../lib/businessHours';
 
 export const BusinessDetail = () => {
@@ -15,6 +15,18 @@ export const BusinessDetail = () => {
   const [loading, setLoading] = useState(true);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeCoupon, setActiveCoupon] = useState<any | null>(null);
+
+  const navigate = useNavigate();
+  const { user, claimPromotion } = useAuthStore();
+
+  const handleClaimCoupon = (promoId: string) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    claimPromotion(promoId);
+  };
 
   useEffect(() => {
     if (!business?.promoImages || business.promoImages.length <= 1) return;
@@ -57,7 +69,11 @@ export const BusinessDetail = () => {
             status: bizData.status,
             openingHours: bizData.opening_hours || [],
             promoImages: bizData.promo_images || [],
-            youtubeUrl: bizData.youtube_url || ''
+            youtubeUrl: bizData.youtube_url || '',
+            instagram: bizData.instagram || '',
+            facebook: bizData.facebook || '',
+            website: bizData.website || '',
+            tiktokUrl: bizData.tiktok_url || ''
           } as Business);
         }
 
@@ -94,6 +110,21 @@ export const BusinessDetail = () => {
             parentId: c.parent_id,
             orderIndex: c.order_index
           })));
+        }
+
+        // Fetch active Coupons (Promotions)
+        const { data: promoData } = await supabase
+          .from('promotions')
+          .select('*')
+          .eq('business_id', id)
+          .gte('valid_until', new Date().toISOString());
+
+        if (promoData && promoData.length > 0) {
+          // Sort by valid_until ascending (closest to expire first)
+          const sortedPromos = promoData.sort((a, b) => new Date(a.valid_until).getTime() - new Date(b.valid_until).getTime());
+          setActiveCoupon(sortedPromos[0]);
+        } else {
+          setActiveCoupon(null);
         }
       } catch (error) {
         console.error('Error fetching details:', error);
@@ -367,13 +398,39 @@ export const BusinessDetail = () => {
           {/* Info Sidebar (30%) */}
           <div className="lg:col-span-3 space-y-8">
             {/* Offers/Promotions */}
-            <div className="bg-primary rounded-2xl p-6 text-dark shadow-lg shadow-primary/20">
-              <h3 className="text-xl font-medium mb-2 uppercase tracking-tight">Oferta Especial</h3>
-              <p className="text-dark/80 font-medium mb-4">20% de descuento en tu primer pedido usando el código: <span className="font-medium text-dark">NUEVO20</span></p>
-              <div className="bg-dark/10 rounded-2xl p-3 text-center font-medium border border-dark/20">
-                Válido hasta el 31/03
-              </div>
-            </div>
+            {activeCoupon && (() => {
+              const isClaimed = user?.claimedPromotions?.some(p => p.promoId === activeCoupon.id);
+              return (
+                <div className="bg-primary rounded-2xl p-6 text-dark shadow-lg shadow-primary/20 space-y-4">
+                  <div>
+                    <h3 className="text-xl font-medium mb-1 uppercase tracking-tight">{activeCoupon.title}</h3>
+                    <p className="text-dark/80 font-medium text-sm">{activeCoupon.description}</p>
+                  </div>
+                  
+                  <div className="text-xs font-mono bg-dark/5 px-3 py-1.5 rounded-lg inline-block font-bold">
+                    Código: {activeCoupon.code}
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => handleClaimCoupon(activeCoupon.id)}
+                      disabled={isClaimed}
+                      className={`w-full py-3 rounded-2xl font-bold transition-all text-center text-sm shadow-sm ${
+                        isClaimed
+                          ? 'bg-dark/10 text-dark/40 cursor-not-allowed border border-dark/5'
+                          : 'bg-dark text-white hover:bg-dark/90 active:scale-95'
+                      }`}
+                    >
+                      {isClaimed ? 'Ya lo tienes' : 'Lo quiero'}
+                    </button>
+                    
+                    <p className="text-[10px] text-dark/60 text-center font-medium">
+                      Válido hasta el {new Date(activeCoupon.valid_until).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* YouTube Video */}
             {business.youtubeUrl && getYoutubeVideoId(business.youtubeUrl) && (
