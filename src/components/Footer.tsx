@@ -12,7 +12,7 @@ export const Footer = () => {
                 T
               </div>
               <span className="text-xl font-medium bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-                Tentación
+                Tentación Food Store
               </span>
             </Link>
             <p className="text-muted text-sm leading-relaxed">
@@ -23,10 +23,10 @@ export const Footer = () => {
           <div>
             <h4 className="font-medium text-dark mb-6">Plataforma</h4>
             <ul className="space-y-4 text-sm text-muted">
-              <li><Link to="/" className="hover:text-accent transition-colors">Explorar</Link></li>
-              <li><Link to="/login" className="hover:text-accent transition-colors">Registrar Negocio</Link></li>
-              <li><Link to="/" className="hover:text-accent transition-colors">Promociones</Link></li>
-              <li><Link to="/" className="hover:text-accent transition-colors">Ayuda</Link></li>
+              <li><Link to="/about" className="hover:text-accent transition-colors">Quienes Somos</Link></li>
+              <li><Link to="/terms" className="hover:text-accent transition-colors">Terminos y condiciones</Link></li>
+              <li><Link to="/privacy" className="hover:text-accent transition-colors">Politicas de privacidad</Link></li>
+              <li><Link to="/faq" className="hover:text-accent transition-colors">Preguntas frecuentes</Link></li>
             </ul>
           </div>
 
@@ -62,7 +62,7 @@ export const Footer = () => {
         
         <div className="pt-8 border-t border-surface text-center">
           <p className="text-xs text-muted font-medium">
-            © 2024 Tentación Food Store. Todos los derechos reservados.
+            © 2026 Tentación Food Store. Todos los derechos reservados. - Creador por <a href="https://ideasdelsur.cl" target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">ideasdelsur.cl</a>
           </p>
         </div>
       </div>

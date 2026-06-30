@@ -11,6 +11,10 @@ import { AdminPanel } from './pages/AdminPanel';
 import { DeliveryPanel } from './pages/DeliveryPanel';
 import { Promotions } from './pages/Promotions';
 import { MaintenanceMode } from './pages/MaintenanceMode';
+import { AboutUs } from './pages/AboutUs';
+import { TermsAndConditions } from './pages/TermsAndConditions';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { Faq } from './pages/Faq';
 import { useAuthStore } from './store/useStore';
 import { Chatbot } from './components/Chatbot';
 import { supabase } from './lib/supabase';
@@ -222,7 +226,10 @@ const AuthHandler = () => {
           role: finalRole as any,
           businessId: data.business_id,
           claimedPromotions: userMetadata?.claimedPromotions || [],
-          status: data.status as any
+          status: data.status as any,
+          phone: data.phone,
+          address: data.address,
+          avatarUrl: data.avatar_url
         });
       }
     } catch (error) {
@@ -258,6 +265,10 @@ export default function App() {
             <Route path="/business/:id" element={<BusinessDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/promotions" element={<Promotions />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/terms" element={<TermsAndConditions />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/faq" element={<Faq />} />
             
             <Route path="/checkout" element={
               <PrivateRoute>

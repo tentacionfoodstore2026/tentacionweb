@@ -24,6 +24,9 @@ export interface User {
   claimedPromotions: ClaimedPromotion[]; // IDs of claimed promotions
   loyaltyCard?: LoyaltyCard;
   status?: 'active' | 'inactive';
+  phone?: string;
+  address?: string;
+  avatarUrl?: string;
 }
 
 export interface OpeningHours {

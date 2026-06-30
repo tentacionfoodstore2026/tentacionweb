@@ -1,17 +1,88 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/useStore';
-import { Package, MapPin, Clock, ChevronRight, Ticket, Settings, User as UserIcon, Tag, Star } from 'lucide-react';
+import { Package, MapPin, Clock, ChevronRight, Ticket, Settings, User as UserIcon, Tag, Star, Camera, Save, Loader2, Phone, Mail } from 'lucide-react';
 import { motion } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '../lib/supabase';
 
 export const Profile = () => {
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const [activeTab, setActiveTab] = React.useState('profile');
   const [orders, setOrders] = useState<any[]>([]);
   const [loyaltyCard, setLoyaltyCard] = useState<any>(null);
   const [promotions, setPromotions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Profile Edit State
+  const [isEditing, setIsEditing] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || '',
+    phone: user?.phone || '',
+    address: user?.address || ''
+  });
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        name: user.name || '',
+        phone: user.phone || '',
+        address: user.address || ''
+      });
+    }
+  }, [user]);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0] || !user) return;
+    const file = e.target.files[0];
+    setUploadingAvatar(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+
+      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+      setUser({ ...user, avatarUrl: publicUrl });
+    } catch (err) {
+      console.error('Error uploading avatar:', err);
+      alert('Error al subir la imagen.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setSavingProfile(true);
+    try {
+      const { error } = await supabase.from('profiles').update({
+        name: profileForm.name,
+        phone: profileForm.phone,
+        address: profileForm.address
+      }).eq('id', user.id);
+
+      if (error) throw error;
+
+      setUser({ ...user, name: profileForm.name, phone: profileForm.phone, address: profileForm.address });
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      alert('Error al guardar el perfil.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -122,8 +193,19 @@ export const Profile = () => {
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="bg-surface rounded-2xl shadow-sm border border-surface p-8 mb-8 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-8">
-          <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center text-primary text-4xl font-medium">
-            {user.name.charAt(0).toUpperCase()}
+          <div className="relative group">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.name} className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-sm" />
+            ) : (
+              <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center text-primary text-4xl font-medium">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            
+            <label className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center text-dark cursor-pointer shadow-md hover:scale-110 transition-transform">
+              {uploadingAvatar ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+            </label>
           </div>
           <div className="text-center sm:text-left flex-1">
             <h1 className="text-3xl font-medium text-dark mb-1">{user.name}</h1>
@@ -138,14 +220,14 @@ export const Profile = () => {
               </span>
               <span className="text-muted/60 text-xs font-medium uppercase tracking-wider">Miembro desde Mar 2024</span>
               <button 
-                onClick={() => window.location.reload()}
+                onClick={() => { setActiveTab('profile'); setIsEditing(true); }}
                 className="text-[10px] text-primary hover:underline font-medium uppercase tracking-widest"
               >
                 Actualizar Datos
               </button>
             </div>
           </div>
-          <button className="bg-dark/5 p-3 rounded-2xl text-muted hover:bg-dark/10 transition-all">
+          <button onClick={() => { setActiveTab('profile'); setIsEditing(!isEditing); }} className="bg-dark/5 p-3 rounded-2xl text-muted hover:bg-dark/10 transition-all">
             <Settings size={24} />
           </button>
         </div>
@@ -175,6 +257,102 @@ export const Profile = () => {
 
         {/* Content */}
         <div className="space-y-6">
+          {activeTab === 'profile' && (
+            <div className="bg-surface rounded-2xl border border-surface p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-medium text-dark">Información Personal</h2>
+                {!isEditing && (
+                  <button onClick={() => setIsEditing(true)} className="text-primary hover:text-accent font-medium text-sm">
+                    Editar Perfil
+                  </button>
+                )}
+              </div>
+              
+              {isEditing ? (
+                <div className="space-y-4 max-w-lg">
+                  <div>
+                    <label className="block text-sm font-medium text-muted mb-1">Nombre Completo</label>
+                    <input 
+                      type="text" 
+                      value={profileForm.name} 
+                      onChange={e => setProfileForm({...profileForm, name: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-dark/10 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-muted mb-1">Teléfono</label>
+                    <input 
+                      type="tel" 
+                      value={profileForm.phone} 
+                      onChange={e => setProfileForm({...profileForm, phone: e.target.value})}
+                      placeholder="+56 9 1234 5678"
+                      className="w-full px-4 py-3 rounded-xl border border-dark/10 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-muted mb-1">Dirección de Envío Principal</label>
+                    <input 
+                      type="text" 
+                      value={profileForm.address} 
+                      onChange={e => setProfileForm({...profileForm, address: e.target.value})}
+                      placeholder="Calle 123, Depto 4"
+                      className="w-full px-4 py-3 rounded-xl border border-dark/10 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
+                  <div className="pt-4 flex space-x-3">
+                    <button 
+                      onClick={handleSaveProfile} 
+                      disabled={savingProfile}
+                      className="flex-1 bg-primary text-dark py-3 rounded-xl font-medium hover:bg-primary/90 transition-colors flex justify-center items-center"
+                    >
+                      {savingProfile ? <Loader2 size={20} className="animate-spin" /> : 'Guardar Cambios'}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setIsEditing(false);
+                        setProfileForm({ name: user.name || '', phone: user.phone || '', address: user.address || '' });
+                      }}
+                      className="px-6 py-3 border border-dark/10 rounded-xl font-medium text-muted hover:bg-dark/5 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex items-start space-x-3 p-4 bg-dark/5 rounded-xl">
+                    <UserIcon className="text-muted mt-1" size={20} />
+                    <div>
+                      <p className="text-sm text-muted">Nombre</p>
+                      <p className="font-medium text-dark">{user.name}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 p-4 bg-dark/5 rounded-xl">
+                    <Mail className="text-muted mt-1" size={20} />
+                    <div>
+                      <p className="text-sm text-muted">Email</p>
+                      <p className="font-medium text-dark">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 p-4 bg-dark/5 rounded-xl">
+                    <Phone className="text-muted mt-1" size={20} />
+                    <div>
+                      <p className="text-sm text-muted">Teléfono</p>
+                      <p className="font-medium text-dark">{user.phone || 'No especificado'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 p-4 bg-dark/5 rounded-xl">
+                    <MapPin className="text-muted mt-1" size={20} />
+                    <div>
+                      <p className="text-sm text-muted">Dirección</p>
+                      <p className="font-medium text-dark">{user.address || 'No especificada'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'loyalty' && (
             <div className="bg-surface rounded-2xl border border-surface p-8">
               <div className="text-center mb-8">
