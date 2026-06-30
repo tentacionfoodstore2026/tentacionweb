@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Twitter, Mail, Phone } from 'lucide-react';
+import { useAuthStore } from '../store/useStore';
 
 export const Footer = () => {
+  const { portalSettings } = useAuthStore();
+  
   return (
     <footer className="bg-surface border-t border-surface pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -12,7 +15,7 @@ export const Footer = () => {
                 T
               </div>
               <span className="text-xl font-medium bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-                Tentación Food Store
+                {portalSettings?.name || 'Tentación Food Store'}
               </span>
             </Link>
             <p className="text-muted text-sm leading-relaxed">
@@ -35,11 +38,11 @@ export const Footer = () => {
             <ul className="space-y-4 text-sm text-muted">
               <li className="flex items-center space-x-2">
                 <Mail size={16} />
-                <span>soporte@tentacion.com</span>
+                <span>{portalSettings?.support_email || 'soporte@tentacion.com'}</span>
               </li>
               <li className="flex items-center space-x-2">
                 <Phone size={16} />
-                <span>+54 11 1234-5678</span>
+                <span>{portalSettings?.support_phone || '+54 11 1234-5678'}</span>
               </li>
             </ul>
           </div>
@@ -62,7 +65,7 @@ export const Footer = () => {
         
         <div className="pt-8 border-t border-surface text-center">
           <p className="text-xs text-muted font-medium">
-            © 2026 Tentación Food Store. Todos los derechos reservados. - Creador por <a href="https://ideasdelsur.cl" target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">ideasdelsur.cl</a>
+            © 2026 {portalSettings?.name || 'Tentación Food Store'}. Todos los derechos reservados. - Creador por <a href="https://ideasdelsur.cl" target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">ideasdelsur.cl</a>
           </p>
         </div>
       </div>
