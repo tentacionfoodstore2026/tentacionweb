@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MapPicker } from '../components/MapPicker';
 import { useCartStore, useAuthStore, useCouponStore, Coupon, useOrderStore } from '../store/useStore';
 import { Send, MapPin, Phone, User as UserIcon, ArrowLeft, Mail, Info, CreditCard, CheckCircle2, Loader2, ShoppingBag, Tag, X as XIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -18,9 +19,9 @@ export const Checkout = () => {
   const [formData, setFormData] = React.useState({
     name: user?.name || '',
     email: user?.email || '',
-    address: '',
+    address: user?.address || '',
     reference: '',
-    phone: '',
+    phone: user?.phone || '',
     notes: '',
     paymentMethod: 'cash'
   });
@@ -289,7 +290,8 @@ export const Checkout = () => {
           selected_modifiers: modifiers,
           selected_size: item.selectedSize ? item.selectedSize.name : null,
           selected_extras: extras,
-          notes: item.notes || null
+          notes: item.notes || null,
+          category_name: item.category || null
         };
       });
 
@@ -319,7 +321,7 @@ export const Checkout = () => {
         businessId: businessId,
         items: items.map(item => ({
           productId: item.id,
-          name: item.name,
+          name: item.category ? `${item.category} - ${item.name}` : item.name,
           price: item.price,
           quantity: item.quantity
         })),
@@ -362,7 +364,8 @@ export const Checkout = () => {
     if (!business || !savedOrderInfo) return;
 
     const itemsText = savedOrderInfo.items.map((i: any) => {
-      let text = `- ${i.name} x ${i.quantity} ($${i.price * i.quantity})`;
+      const displayName = i.category ? `${i.category} - ${i.name}` : i.name;
+      let text = `- ${displayName} x ${i.quantity} ($${i.price * i.quantity})`;
       
       // Modifiers
       if (i.selected_modifiers && Object.keys(i.selected_modifiers).length > 0) {
@@ -439,8 +442,11 @@ export const Checkout = () => {
               {savedOrderInfo?.items?.map((item: any, idx: number) => (
                 <div key={idx} className="border-b border-surface last:border-0 pb-3 last:pb-0">
                   <div className="flex justify-between items-start">
-                    <span className="font-bold text-dark text-sm">{item.quantity}x {item.name}</span>
-                    <span className="font-bold text-dark text-sm">${item.price * item.quantity}</span>
+                    <div className="font-bold text-dark text-sm">
+                      <span className="text-muted mr-1">{item.quantity}x</span>
+                      <span>{item.category ? `${item.category} - ${item.name}` : item.name}</span>
+                    </div>
+                    <span className="font-bold text-dark text-sm ml-2">${item.price * item.quantity}</span>
                   </div>
                   
                   {/* Modifiers display */}
@@ -594,8 +600,12 @@ export const Checkout = () => {
                     type="text"
                     value={formData.address}
                     onChange={e => setFormData({...formData, address: e.target.value})}
-                    className="w-full bg-surface border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark"
+                    className="w-full bg-surface border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark mb-3"
                     placeholder="Calle, número, departamento..."
+                  />
+                  <MapPicker 
+                    address={formData.address} 
+                    onChangeAddress={(addr) => setFormData(prev => ({ ...prev, address: addr }))} 
                   />
                 </div>
 
@@ -684,7 +694,9 @@ export const Checkout = () => {
                 {items.map(item => (
                   <div key={item.cartItemId} className="flex justify-between items-start text-muted">
                     <div className="flex-1">
-                      <p className="font-medium text-dark">{item.name}</p>
+                      <p className="font-medium text-dark">
+                        {item.category ? `${item.category} - ${item.name}` : item.name}
+                      </p>
                       <p className="text-xs text-muted">Cantidad: {item.quantity}</p>
                       {item.selected_modifiers && Object.keys(item.selected_modifiers).length > 0 && (
                         <div className="text-[10px] text-muted mt-1 space-y-0.5">

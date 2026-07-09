@@ -43,15 +43,32 @@ export const BusinessDetail = () => {
       if (!id) return;
       
       try {
-        // Fetch Business
-        const { data: bizData, error: bizError } = await supabase
-          .from('businesses')
-          .select('*')
-          .eq('id', id)
-          .single();
-          
-        if (bizError) throw bizError;
-        
+        // Run all 4 queries in parallel instead of sequentially
+        const [bizRes, prodRes, catRes, promoRes] = await Promise.all([
+          supabase
+            .from('businesses')
+            .select('*')
+            .eq('id', id)
+            .single(),
+          supabase
+            .from('products')
+            .select('*')
+            .eq('business_id', id),
+          supabase
+            .from('product_categories')
+            .select('id,business_id,name,parent_id,order_index')
+            .eq('business_id', id)
+            .order('order_index'),
+          supabase
+            .from('promotions')
+            .select('id,title,code,type,value,discount_percentage,valid_until,business_id')
+            .eq('business_id', id)
+            .gte('valid_until', new Date().toISOString()),
+        ]);
+
+        // Business
+        if (bizRes.error) throw bizRes.error;
+        const bizData = bizRes.data;
         if (bizData) {
           setBusiness({
             id: bizData.id,
@@ -77,33 +94,29 @@ export const BusinessDetail = () => {
           } as Business);
         }
 
-        // Fetch Products
-        const { data: prodData, error: prodError } = await supabase
-          .from('products')
-          .select('*')
-          .eq('business_id', id);
-          
-        if (prodError) throw prodError;
-        
-        if (prodData) {
-          setProducts(prodData.map(p => ({
+        // Categories Map
+        const catMap: Record<string, string> = {};
+        if (!catRes.error && catRes.data) {
+          catRes.data.forEach(c => {
+            catMap[c.id] = c.name;
+          });
+        }
+
+        // Products
+        if (!prodRes.error && prodRes.data) {
+          setProducts(prodRes.data.map(p => ({
             ...p,
             businessId: p.business_id,
             categoryId: p.category_id,
+            category: catMap[p.category_id] || p.category || 'General',
             sizes: p.sizes || [],
             extras: p.extras || []
           })));
         }
 
-        // Fetch Categories
-        const { data: catData } = await supabase
-          .from('product_categories')
-          .select('*')
-          .eq('business_id', id)
-          .order('order_index');
-
-        if (catData) {
-          setCategories(catData.map(c => ({
+        // Categories
+        if (!catRes.error && catRes.data) {
+          setCategories(catRes.data.map(c => ({
             id: c.id,
             businessId: c.business_id,
             name: c.name,
@@ -112,17 +125,11 @@ export const BusinessDetail = () => {
           })));
         }
 
-        // Fetch active Coupons (Promotions)
-        const { data: promoData } = await supabase
-          .from('promotions')
-          .select('*')
-          .eq('business_id', id)
-          .gte('valid_until', new Date().toISOString());
-
+        // Promotions
+        const promoData = promoRes.data;
         if (promoData && promoData.length > 0) {
-          // Sort by valid_until ascending (closest to expire first)
-          const sortedPromos = promoData.sort((a, b) => new Date(a.valid_until).getTime() - new Date(b.valid_until).getTime());
-          setActiveCoupon(sortedPromos[0]);
+          const sorted = promoData.sort((a, b) => new Date(a.valid_until).getTime() - new Date(b.valid_until).getTime());
+          setActiveCoupon(sorted[0]);
         } else {
           setActiveCoupon(null);
         }
@@ -135,6 +142,7 @@ export const BusinessDetail = () => {
 
     fetchBusinessAndProducts();
   }, [id]);
+
 
   if (loading) {
     return (

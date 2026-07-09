@@ -266,7 +266,9 @@ export const Navbar = () => {
                         className="w-20 h-20 rounded-2xl object-cover shrink-0"
                       />
                       <div className="flex-1">
-                        <h3 className="font-medium text-dark">{item.name}</h3>
+                        <h3 className="font-medium text-dark">
+                          {item.category ? `${item.category} - ${item.name}` : item.name}
+                        </h3>
                         <p className="text-sm text-muted line-clamp-1">{item.description}</p>
                         
                         {item.selected_modifiers && Object.keys(item.selected_modifiers).length > 0 && (

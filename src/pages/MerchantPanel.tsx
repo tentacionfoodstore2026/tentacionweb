@@ -1418,7 +1418,11 @@ export const MerchantPanel = () => {
                               <span className="bg-primary text-dark w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shadow-sm">
                                 {item.quantity}
                               </span>
-                              <span className="font-bold text-dark text-sm">{item.products?.name || 'Producto'}</span>
+                              <span className="font-bold text-dark text-sm">
+                                {item.category_name
+                                  ? `${item.category_name} - ${item.products?.name || 'Producto'}`
+                                  : (item.products?.name || 'Producto')}
+                              </span>
                             </div>
                             <span className="font-bold text-dark text-sm">${item.price * item.quantity}</span>
                           </div>
