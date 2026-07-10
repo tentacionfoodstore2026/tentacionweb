@@ -80,7 +80,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <p className="text-sm text-muted line-clamp-2">{product.description}</p>
         {/* Precio a la derecha + botón */}
         <div className="flex items-center justify-end gap-2 mt-auto">
-          <span className="text-base font-bold text-accent">${product.price}</span>
+          {product.is_offer_active && product.offer_price ? (
+            <div className="flex flex-col items-end">
+              <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded uppercase tracking-wider mb-0.5 leading-none shadow-sm">Oferta</span>
+              <div className="flex items-end gap-1.5 leading-none">
+                <span className="text-[11px] text-muted/70 line-through">${product.price}</span>
+                <span className="text-base font-bold text-red-500">${product.offer_price}</span>
+              </div>
+            </div>
+          ) : (
+            <span className="text-base font-bold text-accent">${product.price}</span>
+          )}
           <button
             onClick={handleAdd}
             className="bg-primary/10 text-accent p-2 rounded-2xl hover:bg-primary hover:text-dark transition-all active:scale-90"

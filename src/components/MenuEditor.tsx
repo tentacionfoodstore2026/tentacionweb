@@ -197,7 +197,9 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
         image: imageUrl,
         available: currentProduct.available ?? true,
         sizes: currentProduct.sizes || [],
-        extras: currentProduct.extras || []
+        extras: currentProduct.extras || [],
+        offer_price: currentProduct.offer_price ? Number(currentProduct.offer_price) : null,
+        is_offer_active: currentProduct.is_offer_active ?? false
       };
 
       let finalProductId = currentProduct.id;
@@ -1021,22 +1023,6 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                                 className="w-full bg-surface border-none rounded-2xl pl-10 pr-6 py-4 text-base font-semibold focus:ring-4 focus:ring-accent/10 transition-all"
                               />
                             </div>
-                            <div className="mt-2 flex items-center gap-2">
-                             <label className="block text-[10px] font-semibold text-muted mb-0 uppercase">Precio Oferta</label>
-                             <div className="relative">
-                               <span className="absolute left-6 top-1/2 -translate-y-1/2 font-semibold text-muted">$</span>
-                               <input 
-                                 type="number"
-                                 value={currentProduct?.offer_price || ''}
-                                 onChange={(e) => setCurrentProduct({ ...currentProduct, offer_price: Number(e.target.value) })}
-                                 className="w-full bg-surface border-none rounded-2xl pl-10 pr-6 py-4 text-base font-semibold focus:ring-4 focus:ring-accent/10 transition-all"
-                               />
-                             </div>
-                           </div>
-                           <div className="mt-2 flex items-center">
-                             <label className="block text-[10px] font-semibold text-muted mr-2 uppercase">Oferta Activa</label>
-                             <input type="checkbox" checked={currentProduct?.is_offer_active || false} onChange={(e) => setCurrentProduct({ ...currentProduct, is_offer_active: e.target.checked })} />
-                           </div>
                           </div>
                           <div>
                             <label className="block text-[10px] font-semibold text-muted mb-3 uppercase tracking-[0.2em]">Estado</label>
@@ -1048,6 +1034,40 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                               <option value="true">🟢 Disponible</option>
                               <option value="false">🔴 Agotado</option>
                             </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-semibold text-muted mb-3 uppercase tracking-[0.2em]">
+                              Precio Oferta
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-6 top-1/2 -translate-y-1/2 font-semibold text-muted">$</span>
+                              <input 
+                                type="number"
+                                value={currentProduct?.offer_price || ''}
+                                onChange={(e) => setCurrentProduct({ ...currentProduct, offer_price: e.target.value ? Number(e.target.value) : undefined })}
+                                className="w-full bg-surface border-none rounded-2xl pl-10 pr-6 py-4 text-base font-semibold focus:ring-4 focus:ring-accent/10 transition-all"
+                                placeholder="Opcional"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-muted mb-3 uppercase tracking-[0.2em]">Oferta Activa</label>
+                            <div className="flex items-center h-14 bg-surface rounded-2xl px-6 justify-between">
+                              <span className="text-sm font-medium text-dark">
+                                {currentProduct?.is_offer_active ? 'Sí' : 'No'}
+                              </span>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input 
+                                  type="checkbox" 
+                                  checked={currentProduct?.is_offer_active || false}
+                                  onChange={(e) => setCurrentProduct({ ...currentProduct, is_offer_active: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                              </label>
+                            </div>
                           </div>
                         </div>
 
