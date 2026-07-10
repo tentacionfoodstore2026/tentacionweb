@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Search, ChevronRight, Zap, Award, Clock } from 'lucide-react';
+import { Search, ChevronRight, Zap, Award, Clock, MapPin } from 'lucide-react';
+import { BusinessMap, MapBusiness } from '../components/BusinessMap';
 import { BusinessCard } from '../components/BusinessCard';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -28,6 +29,7 @@ export const Home = () => {
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [mapBusinesses, setMapBusinesses] = useState<MapBusiness[]>([]);
   const [categories, setCategories] = useState<string[]>(['Todos']);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export const Home = () => {
       setBusinesses(cached.businesses);
       setBanners(cached.banners);
       setCategories(cached.categories);
+      if (cached.mapBusinesses) setMapBusinesses(cached.mapBusinesses);
       setLoading(false);
       return;
     }
@@ -55,7 +58,7 @@ export const Home = () => {
             .order('sort_order', { ascending: true }),
           supabase
             .from('businesses')
-            .select('id,name,description,category,image,rating,delivery_fee,delivery_time,status,is_open,opening_hours')
+            .select('id,name,description,category,image,banner,whatsapp,address,rating,delivery_fee,delivery_time,status,is_open,opening_hours,latitude,longitude')
             .neq('status', 'inactive'),
         ]);
 
@@ -68,11 +71,11 @@ export const Home = () => {
           id: b.id,
           name: b.name || 'Sin nombre',
           description: b.description || '',
-          category: b.category || 'Sin categoría',
+          category: b.category || 'Sin categoria',
           image: b.image || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80',
-          banner: '',
-          whatsapp: '',
-          address: '',
+          banner: b.banner || '',
+          whatsapp: b.whatsapp || '',
+          address: b.address || '',
           rating: b.rating || 5.0,
           isOpen: isBusinessCurrentlyOpen(b.opening_hours, b.is_open),
           deliveryFee: b.delivery_fee || 0,
@@ -80,13 +83,25 @@ export const Home = () => {
           status: b.status || 'active',
         }));
 
+        const mapData: MapBusiness[] = (bizRes.data || [])
+          .filter((b: any) => b.latitude && b.longitude)
+          .map((b: any) => ({
+            id: b.id,
+            name: b.name || 'Sin nombre',
+            image: b.image || '',
+            latitude: Number(b.latitude),
+            longitude: Number(b.longitude),
+            address: b.address || '',
+          }));
+        setMapBusinesses(mapData);
+
         const cats = ['Todos', ...Array.from(new Set(formatted.map(b => b.category)))].filter(Boolean);
 
         setBusinesses(formatted);
         setCategories(cats);
-        saveCache({ businesses: formatted, banners: bannerData, categories: cats });
+        saveCache({ businesses: formatted, banners: bannerData, categories: cats, mapBusinesses: mapData });
       } catch (err: any) {
-        setFetchError(err?.message || 'Error de conexión con Supabase');
+        setFetchError(err?.message || 'Error de conexin con Supabase');
       } finally {
         setLoading(false);
       }
@@ -144,7 +159,7 @@ export const Home = () => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
                 <input
                   type="text"
-                  placeholder="¿Qué se te antoja hoy?"
+                  placeholder="ï¿½Quï¿½ se te antoja hoy?"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full bg-surface rounded-2xl py-4 pl-12 pr-4 text-dark placeholder-muted focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-xl border border-surface"
@@ -167,7 +182,7 @@ export const Home = () => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
                 <input
                   type="text"
-                  placeholder="¿Qué se te antoja hoy?"
+                  placeholder="ï¿½Quï¿½ se te antoja hoy?"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full bg-surface rounded-2xl py-4 pl-12 pr-4 text-dark placeholder-muted focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-xl border border-surface"
@@ -224,9 +239,9 @@ export const Home = () => {
             </div>
           ) : fetchError ? (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
-              <p className="text-red-600 font-medium text-lg mb-2">?? Error de conexión con Supabase</p>
+              <p className="text-red-600 font-medium text-lg mb-2">?? Error de conexiï¿½n con Supabase</p>
               <p className="text-red-500 text-sm font-mono">{fetchError}</p>
-              <p className="text-muted text-sm mt-4">Ejecuta <strong>supabase-rls-fixes.sql</strong> en el Editor SQL de Supabase y recarga la página.</p>
+              <p className="text-muted text-sm mt-4">Ejecuta <strong>supabase-rls-fixes.sql</strong> en el Editor SQL de Supabase y recarga la pï¿½gina.</p>
             </div>
           ) : filteredBusinesses.length === 0 ? (
             <div className="bg-surface border border-dashed border-muted/30 rounded-2xl p-12 text-center">
@@ -249,9 +264,9 @@ export const Home = () => {
           <div className="bg-gradient-to-br from-primary to-accent rounded-2xl p-8 text-dark relative overflow-hidden group cursor-pointer border border-surface shadow-lg">
             <div className="relative z-10">
               <Award className="mb-4" size={32} />
-              <h3 className="text-2xl font-medium mb-2">Envío Gratis</h3>
+              <h3 className="text-2xl font-medium mb-2">Envï¿½o Gratis</h3>
               <p className="text-dark/70 mb-4">En tu primer pedido en locales seleccionados.</p>
-              <span className="bg-dark/10 backdrop-blur-md px-4 py-2 rounded-2xl font-medium">Usar Cupón: HOLA50</span>
+              <span className="bg-dark/10 backdrop-blur-md px-4 py-2 rounded-2xl font-medium">Usar Cupï¿½n: HOLA50</span>
             </div>
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
           </div>
@@ -264,6 +279,20 @@ export const Home = () => {
             </div>
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
           </div>
+        </section>
+
+        {/* Map Section */}
+        <section className="mb-12">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center">
+              <MapPin className="text-accent" size={20} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-medium text-dark">Comercios en el mapa</h2>
+              <p className="text-sm text-muted">Encuentra los locales cerca de ti</p>
+            </div>
+          </div>
+          <BusinessMap businesses={mapBusinesses} />
         </section>
 
       </div>
