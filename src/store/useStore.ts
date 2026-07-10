@@ -100,6 +100,9 @@ export interface Product {
   available: boolean;
   sizes: ProductSize[];
   extras: ProductExtraGroup[];
+  // New fields for promotional pricing
+  offer_price?: number;
+  is_offer_active?: boolean;
 }
 
 export interface OrderItem {

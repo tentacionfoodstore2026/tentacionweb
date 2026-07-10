@@ -1021,6 +1021,22 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                                 className="w-full bg-surface border-none rounded-2xl pl-10 pr-6 py-4 text-base font-semibold focus:ring-4 focus:ring-accent/10 transition-all"
                               />
                             </div>
+                            <div className="mt-2 flex items-center gap-2">
+                             <label className="block text-[10px] font-semibold text-muted mb-0 uppercase">Precio Oferta</label>
+                             <div className="relative">
+                               <span className="absolute left-6 top-1/2 -translate-y-1/2 font-semibold text-muted">$</span>
+                               <input 
+                                 type="number"
+                                 value={currentProduct?.offer_price || ''}
+                                 onChange={(e) => setCurrentProduct({ ...currentProduct, offer_price: Number(e.target.value) })}
+                                 className="w-full bg-surface border-none rounded-2xl pl-10 pr-6 py-4 text-base font-semibold focus:ring-4 focus:ring-accent/10 transition-all"
+                               />
+                             </div>
+                           </div>
+                           <div className="mt-2 flex items-center">
+                             <label className="block text-[10px] font-semibold text-muted mr-2 uppercase">Oferta Activa</label>
+                             <input type="checkbox" checked={currentProduct?.is_offer_active || false} onChange={(e) => setCurrentProduct({ ...currentProduct, is_offer_active: e.target.checked })} />
+                           </div>
                           </div>
                           <div>
                             <label className="block text-[10px] font-semibold text-muted mb-3 uppercase tracking-[0.2em]">Estado</label>
@@ -1075,7 +1091,7 @@ export const MenuEditor: React.FC<MenuEditorProps> = ({ businessId, businessName
                         {/* Quick Presets */}
                         <div className="flex flex-wrap gap-2 mb-6 p-4 bg-surface/30 rounded-2xl border border-surface/50">
                           <span className="text-[9px] font-bold text-muted uppercase self-center mr-1">Tamaños rápidos:</span>
-                          {['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Individual', 'Mediana', 'Grande', 'Familiar'].map((preset) => (
+                          {['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Individual', 'Pequeña', 'Mediana', 'Grande', 'Familiar'].map((preset) => (
                             <button
                               key={preset}
                               type="button"
