@@ -71,7 +71,7 @@ export const Home = () => {
           id: b.id,
           name: b.name || 'Sin nombre',
           description: b.description || '',
-          category: b.category || 'Sin categoria',
+          category: b.category || 'Sin categoría',
           image: b.image || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80',
           banner: b.banner || '',
           whatsapp: b.whatsapp || '',
@@ -101,7 +101,7 @@ export const Home = () => {
         setCategories(cats);
         saveCache({ businesses: formatted, banners: bannerData, categories: cats, mapBusinesses: mapData });
       } catch (err: any) {
-        setFetchError(err?.message || 'Error de conexin con Supabase');
+        setFetchError(err?.message || 'Error de conexión con Supabase');
       } finally {
         setLoading(false);
       }
@@ -159,7 +159,7 @@ export const Home = () => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
                 <input
                   type="text"
-                  placeholder="�Qu� se te antoja hoy?"
+                  placeholder="¿Qué se te antoja hoy?"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full bg-surface rounded-2xl py-4 pl-12 pr-4 text-dark placeholder-muted focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-xl border border-surface"
@@ -182,7 +182,7 @@ export const Home = () => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
                 <input
                   type="text"
-                  placeholder="�Qu� se te antoja hoy?"
+                  placeholder="¿Qué se te antoja hoy?"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full bg-surface rounded-2xl py-4 pl-12 pr-4 text-dark placeholder-muted focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-xl border border-surface"
@@ -239,9 +239,9 @@ export const Home = () => {
             </div>
           ) : fetchError ? (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
-              <p className="text-red-600 font-medium text-lg mb-2">?? Error de conexi�n con Supabase</p>
+              <p className="text-red-600 font-medium text-lg mb-2">🔌 Error de conexión con Supabase</p>
               <p className="text-red-500 text-sm font-mono">{fetchError}</p>
-              <p className="text-muted text-sm mt-4">Ejecuta <strong>supabase-rls-fixes.sql</strong> en el Editor SQL de Supabase y recarga la p�gina.</p>
+              <p className="text-muted text-sm mt-4">Ejecuta <strong>supabase-rls-fixes.sql</strong> en el Editor SQL de Supabase y recarga la página.</p>
             </div>
           ) : filteredBusinesses.length === 0 ? (
             <div className="bg-surface border border-dashed border-muted/30 rounded-2xl p-12 text-center">
@@ -264,9 +264,9 @@ export const Home = () => {
           <div className="bg-gradient-to-br from-primary to-accent rounded-2xl p-8 text-dark relative overflow-hidden group cursor-pointer border border-surface shadow-lg">
             <div className="relative z-10">
               <Award className="mb-4" size={32} />
-              <h3 className="text-2xl font-medium mb-2">Env�o Gratis</h3>
+              <h3 className="text-2xl font-medium mb-2">Envío Gratis</h3>
               <p className="text-dark/70 mb-4">En tu primer pedido en locales seleccionados.</p>
-              <span className="bg-dark/10 backdrop-blur-md px-4 py-2 rounded-2xl font-medium">Usar Cup�n: HOLA50</span>
+              <span className="bg-dark/10 backdrop-blur-md px-4 py-2 rounded-2xl font-medium">Usar Cupón: HOLA50</span>
             </div>
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
           </div>
