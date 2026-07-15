@@ -224,13 +224,15 @@ interface AdminSectionProps {
   currentUser: any;
   updateUserRole: (id: string, role: any) => Promise<void>;
   toggleUserStatus: (id: string) => Promise<void>;
+  deleteUser: (id: string) => Promise<boolean>;
 }
 
 const AdministrationSection: React.FC<AdminSectionProps> = ({ 
   users, 
   currentUser, 
   updateUserRole,
-  toggleUserStatus 
+  toggleUserStatus,
+  deleteUser
 }) => {
   const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.email?.toLowerCase() === 'joseluisquiroga76@gmail.com';
   const [search, setSearch] = useState('');
@@ -527,6 +529,33 @@ const AdministrationSection: React.FC<AdminSectionProps> = ({
                       }`}
                     >
                       {selectedUser.status === 'inactive' ? <CheckCircle size={24} /> : <XCircle size={24} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Danger Zone */}
+                <div className="space-y-4">
+                  <h5 className="text-[10px] font-medium text-red-500 uppercase tracking-[0.3em]">Zona de Peligro</h5>
+                  <div className="flex items-center justify-between p-6 bg-red-50/50 rounded-2xl border border-red-100">
+                    <div>
+                      <p className="text-sm font-medium text-red-700 uppercase tracking-tight">
+                        Eliminar Cuenta
+                      </p>
+                      <p className="text-[10px] text-red-500 font-medium mt-1">
+                        Borrar de forma permanente el usuario de la autenticación y base de datos.
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const success = await deleteUser(selectedUser.id);
+                        if (success) {
+                          setSelectedUser(null);
+                        }
+                      }}
+                      className="p-4 bg-red-500 border-2 border-red-400 text-white rounded-2xl transition-all shadow-lg hover:bg-red-600 shadow-red-500/20 active:scale-95"
+                      title="Eliminar permanentemente"
+                    >
+                      <Trash2 size={24} />
                     </button>
                   </div>
                 </div>
@@ -1923,22 +1952,22 @@ export const AdminPanel = () => {
     }
   };
 
-  const deleteUser = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar este usuario? Esta acción es irreversible.')) {
-      return;
+  const deleteUser = async (id: string): Promise<boolean> => {
+    if (!confirm('¿Estás seguro de que deseas eliminar este usuario de forma permanente? Esta acción borrará al usuario de la autenticación y la base de datos, y es irreversible.')) {
+      return false;
     }
     
     const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', id);
+      .rpc('delete_user_by_admin', { target_user_id: id });
 
     if (error) {
       console.error('Error deleting user:', error);
-      alert('Error al eliminar el usuario de la base de datos.');
+      alert('Error al eliminar el usuario: ' + error.message);
+      return false;
     } else {
       setUsers(users.filter(u => u.id !== id));
       alert('Usuario eliminado correctamente.');
+      return true;
     }
   };
 
@@ -4146,6 +4175,7 @@ export const AdminPanel = () => {
               currentUser={currentUser}
               updateUserRole={updateUserRole}
               toggleUserStatus={toggleUserStatus}
+              deleteUser={deleteUser}
             />
           )}
 
