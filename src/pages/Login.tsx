@@ -104,41 +104,41 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface px-4 pt-20">
+    <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-12">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full bg-surface rounded-2xl shadow-xl p-8 border border-surface"
+        className="max-w-[370px] w-full bg-surface rounded-3xl shadow-xl p-6 border border-surface/50"
       >
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-3xl mx-auto mb-4 shadow-lg shadow-primary/20">
+        <div className="text-center mb-5">
+          <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-2xl mx-auto mb-2 shadow-lg shadow-primary/20">
             T
           </div>
-          <h2 className="text-3xl font-medium text-dark">{isRegister ? 'Crear Cuenta' : 'Bienvenido'}</h2>
-          <p className="text-muted mt-2">
+          <h2 className="text-2xl font-bold text-dark tracking-tight">{isRegister ? 'Crear Cuenta' : 'Bienvenido'}</h2>
+          <p className="text-xs text-muted mt-1">
             {isRegister ? 'Únete a la red de comida más grande' : 'Ingresa para pedir tus platos favoritos'}
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-600 rounded-2xl p-4 mb-6 flex items-start space-x-3 text-sm">
-            <AlertCircle size={20} className="shrink-0 mt-0.5" />
+          <div className="bg-red-500/10 border border-red-500/20 text-red-600 rounded-2xl p-3 mb-4 flex items-start space-x-2 text-xs">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
             <p>{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {isRegister && (
             <div>
-              <label className="block text-sm font-medium text-muted mb-2">Nombre Completo</label>
+              <label className="block text-xs font-semibold text-muted mb-1">Nombre Completo</label>
               <div className="relative">
-                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
                 <input 
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-surface border border-surface rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark"
+                  className="w-full bg-surface border border-surface rounded-2xl py-3 pl-11 pr-4 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark text-sm"
                   placeholder="Tu nombre"
                 />
               </div>
@@ -146,30 +146,30 @@ export const Login = () => {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-muted mb-2">Email</label>
+            <label className="block text-xs font-semibold text-muted mb-1">Email</label>
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
               <input 
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-surface border border-surface rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark"
+                className="w-full bg-surface border border-surface rounded-2xl py-3 pl-11 pr-4 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark text-sm"
                 placeholder="tu@email.com"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-muted mb-2">Contraseña</label>
+            <label className="block text-xs font-semibold text-muted mb-1">Contraseña</label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
               <input 
                 type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-surface border border-surface rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark"
+                className="w-full bg-surface border border-surface rounded-2xl py-3 pl-11 pr-11 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark text-sm"
                 placeholder="••••••••"
               />
               <button
@@ -177,22 +177,22 @@ export const Login = () => {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-dark transition-colors focus:outline-none"
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </div>
 
           {isRegister && (
             <div>
-              <label className="block text-sm font-medium text-muted mb-2">Confirmar Contraseña</label>
+              <label className="block text-xs font-semibold text-muted mb-1">Confirmar Contraseña</label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
                 <input 
                   type={showConfirmPassword ? "text" : "password"}
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-surface border border-surface rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark"
+                  className="w-full bg-surface border border-surface rounded-2xl py-3 pl-11 pr-11 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark text-sm"
                   placeholder="••••••••"
                 />
                 <button
@@ -200,30 +200,28 @@ export const Login = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-dark transition-colors focus:outline-none"
                 >
-                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
           )}
 
-
-
           <button 
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-dark py-4 rounded-2xl font-medium text-lg hover:bg-accent transition-all shadow-lg shadow-primary/20 flex items-center justify-center space-x-2 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full bg-primary text-dark py-3 rounded-2xl font-bold text-sm hover:bg-accent transition-all shadow-lg shadow-primary/20 flex items-center justify-center space-x-2 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed uppercase tracking-wider"
           >
             <span>{loading ? 'Cargando...' : isRegister ? 'Registrarse' : 'Entrar'}</span>
-            {!loading && <ArrowRight size={20} />}
+            {!loading && <ArrowRight size={18} />}
           </button>
         </form>
 
-        <div className="relative my-6">
+        <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-surface"></div>
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-surface text-muted">O continuar con</span>
+          <div className="relative flex justify-center text-xs">
+            <span className="px-2 bg-surface text-muted font-medium">O continuar con</span>
           </div>
         </div>
 
@@ -231,9 +229,9 @@ export const Login = () => {
           type="button"
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="w-full bg-white text-gray-900 py-4 rounded-2xl font-medium text-lg hover:bg-gray-50 transition-all shadow-sm border border-gray-200 flex items-center justify-center space-x-3 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+          className="w-full bg-white text-gray-900 py-3 rounded-2xl font-bold text-sm hover:bg-gray-50 transition-all shadow-sm border border-gray-200 flex items-center justify-center space-x-3 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed uppercase tracking-wider"
         >
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
               fill="#4285F4"
@@ -254,10 +252,10 @@ export const Login = () => {
           <span>Google</span>
         </button>
 
-        <div className="mt-8 text-center">
+        <div className="mt-6 text-center">
           <button 
             onClick={handleToggleMode}
-            className="text-accent font-medium hover:underline"
+            className="text-accent text-xs font-semibold hover:underline"
           >
             {isRegister ? '¿Ya tienes cuenta? Ingresa' : '¿No tienes cuenta? Regístrate'}
           </button>
