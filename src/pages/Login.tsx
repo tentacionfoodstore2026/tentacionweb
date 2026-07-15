@@ -16,6 +16,7 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const portalSettings = useAuthStore((state) => state.portalSettings);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,9 +112,17 @@ export const Login = () => {
         className="max-w-[370px] w-full bg-surface rounded-3xl shadow-xl p-6 border border-surface/50"
       >
         <div className="text-center mb-5">
-          <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-2xl mx-auto mb-2 shadow-lg shadow-primary/20">
-            T
-          </div>
+          {portalSettings?.logo_url ? (
+            <img
+              src={portalSettings.logo_url}
+              alt={portalSettings.name || 'Tentación Food Store'}
+              className="h-12 object-contain mx-auto mb-2"
+            />
+          ) : (
+            <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-2xl mx-auto mb-2 shadow-lg shadow-primary/20">
+              T
+            </div>
+          )}
           <h2 className="text-2xl font-bold text-dark tracking-tight">{isRegister ? 'Crear Cuenta' : 'Bienvenido'}</h2>
           <p className="text-xs text-muted mt-1">
             {isRegister ? 'Únete a la red de comida más grande' : 'Ingresa para pedir tus platos favoritos'}

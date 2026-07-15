@@ -36,17 +36,27 @@ export const Navbar = () => {
                 <MenuIcon size={24} />
               </button>
               <Link to="/" className="flex items-center space-x-2">
-                <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-xl">
-                  T
-                </div>
-                <div className="flex flex-col leading-tight">
-                  <span className="text-sm sm:text-lg font-medium text-accent uppercase tracking-tighter">
-                    TENTACION
-                  </span>
-                  <span className="text-[8px] sm:text-[10px] font-medium text-muted uppercase tracking-widest -mt-1">
-                    Food Store
-                  </span>
-                </div>
+                {portalSettings?.logo_url ? (
+                  <img
+                    src={portalSettings.logo_url}
+                    alt={portalSettings.name || 'Tentación Food Store'}
+                    className="h-10 object-contain"
+                  />
+                ) : (
+                  <>
+                    <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-xl">
+                      T
+                    </div>
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-sm sm:text-lg font-medium text-accent uppercase tracking-tighter">
+                        TENTACION
+                      </span>
+                      <span className="text-[8px] sm:text-[10px] font-medium text-muted uppercase tracking-widest -mt-1">
+                        Food Store
+                      </span>
+                    </div>
+                  </>
+                )}
               </Link>
             </div>
 
@@ -134,12 +144,22 @@ export const Navbar = () => {
             >
               <div className="p-6 border-b border-surface flex justify-between items-center">
                 <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-lg">
-                    T
-                  </div>
-                  <span className="text-lg font-medium text-accent uppercase tracking-tighter">
-                    TENTACION
-                  </span>
+                  {portalSettings?.logo_url ? (
+                    <img
+                      src={portalSettings.logo_url}
+                      alt={portalSettings.name || 'Tentación Food Store'}
+                      className="h-8 object-contain"
+                    />
+                  ) : (
+                    <>
+                      <div className="w-8 h-8 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-lg">
+                        T
+                      </div>
+                      <span className="text-lg font-medium text-accent uppercase tracking-tighter">
+                        TENTACION
+                      </span>
+                    </>
+                  )}
                 </div>
                 <button onClick={() => setIsMenuOpen(false)} className="p-2 hover:bg-primary/10 rounded-2xl transition-colors">
                   <X size={24} />

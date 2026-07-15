@@ -11,12 +11,22 @@ export const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           <div className="col-span-1 md:col-span-1">
             <Link to="/" className="flex items-center space-x-2 mb-6">
-              <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-xl">
-                T
-              </div>
-              <span className="text-xl font-medium bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-                {portalSettings?.name || 'Tentación Food Store'}
-              </span>
+              {portalSettings?.logo_url ? (
+                <img
+                  src={portalSettings.logo_url}
+                  alt={portalSettings.name || 'Tentación Food Store'}
+                  className="h-10 object-contain"
+                />
+              ) : (
+                <>
+                  <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-xl">
+                    T
+                  </div>
+                  <span className="text-xl font-medium bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+                    {portalSettings?.name || 'Tentación Food Store'}
+                  </span>
+                </>
+              )}
             </Link>
             <p className="text-muted text-sm leading-relaxed">
               La plataforma líder para conectar con tus comercios locales favoritos y pedir de forma rápida y sencilla.
