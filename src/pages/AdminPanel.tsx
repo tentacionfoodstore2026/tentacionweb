@@ -1403,6 +1403,8 @@ export const AdminPanel = () => {
   const [kitchenBusinessFilter, setKitchenBusinessFilter] = React.useState('all');
   const [kitchenSearchQuery, setKitchenSearchQuery] = React.useState('');
   const [kitchenDateFilter, setKitchenDateFilter] = React.useState('');
+  const [printingOrderConfirm, setPrintingOrderConfirm] = React.useState<any>(null);
+  const [orderToPrint, setOrderToPrint] = React.useState<any>(null);
   const [orders, setOrders] = React.useState<any[]>([]);
   const [isEditingBusiness, setIsEditingBusiness] = React.useState(false);
   const [currentBusiness, setCurrentBusiness] = React.useState<Partial<Business> | null>(null);
@@ -1879,6 +1881,16 @@ export const AdminPanel = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const printComanda = (order: any) => {
+    setOrderToPrint(order);
+    setTimeout(() => {
+      document.body.classList.add('printing-ticket');
+      window.print();
+      document.body.classList.remove('printing-ticket');
+      setOrderToPrint(null);
+    }, 150);
   };
 
   const toggleBusinessStatus = async (id: string) => {
@@ -2637,6 +2649,20 @@ export const AdminPanel = () => {
             th, td {
               border: 1px solid #eee !important;
             }
+
+            body.printing-ticket {
+              visibility: hidden;
+            }
+            body.printing-ticket .print-ticket-container,
+            body.printing-ticket .print-ticket-container * {
+              visibility: visible;
+            }
+            body.printing-ticket .print-ticket-container {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 80mm;
+            }
           }
         `}
       </style>
@@ -3386,7 +3412,7 @@ export const AdminPanel = () => {
                           </button>
                           {order.status === 'pending' ? (
                             <button 
-                              onClick={() => updateOrderStatus(order.id, 'confirmed')}
+                              onClick={() => setPrintingOrderConfirm(order)}
                               className="w-full bg-blue-600 text-white py-3 rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all flex items-center justify-center space-x-2"
                             >
                               <CheckCircle size={18} />
@@ -3413,6 +3439,16 @@ export const AdminPanel = () => {
                               <CheckCircle size={16} />
                               <span>{getStatusInfo(order.status).label}</span>
                             </div>
+                          )}
+
+                          {order.status !== 'pending' && (
+                            <button 
+                              onClick={() => printComanda(order)}
+                              className="w-full bg-white text-dark py-2.5 rounded-2xl border border-surface shadow-sm font-bold text-sm hover:bg-gray-50 transition-all flex items-center justify-center space-x-2"
+                            >
+                              <Printer size={16} />
+                              <span>Imprimir Comanda</span>
+                            </button>
                           )}
                           {['pending', 'confirmed', 'ready', 'assigned'].includes(order.status) && (
                             <button 
@@ -5716,6 +5752,147 @@ export const AdminPanel = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Modal de Confirmación de Impresión de Comanda */}
+      <AnimatePresence>
+        {printingOrderConfirm && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-dark/60 backdrop-blur-sm overflow-hidden no-print">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl p-8 border border-surface flex flex-col text-center"
+            >
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Printer size={32} className="text-primary" />
+              </div>
+              <h3 className="text-xl font-bold text-dark mb-2">¿Imprimir Comanda?</h3>
+              <p className="text-sm text-muted mb-8 leading-relaxed">
+                El pedido #{printingOrderConfirm.id.split('-')[0]} de <strong>{printingOrderConfirm.businesses?.name}</strong> será enviado a cocina. ¿Deseas imprimir el ticket en la impresora térmica?
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={async () => {
+                    const order = printingOrderConfirm;
+                    setPrintingOrderConfirm(null);
+                    await updateOrderStatus(order.id, 'confirmed');
+                    printComanda(order);
+                  }}
+                  className="w-full bg-primary hover:bg-accent text-dark font-bold py-4 rounded-2xl transition-all shadow-lg shadow-primary/20 text-sm uppercase tracking-wider"
+                >
+                  Sí, Imprimir y Aceptar
+                </button>
+                <button
+                  onClick={async () => {
+                    const order = printingOrderConfirm;
+                    setPrintingOrderConfirm(null);
+                    await updateOrderStatus(order.id, 'confirmed');
+                  }}
+                  className="w-full bg-surface hover:bg-surface-hover text-dark font-bold py-4 rounded-2xl transition-all text-sm uppercase tracking-wider border border-surface"
+                >
+                  No, Solo Aceptar
+                </button>
+                <button
+                  onClick={() => setPrintingOrderConfirm(null)}
+                  className="w-full text-muted hover:text-dark font-medium py-2 rounded-2xl transition-all text-xs uppercase tracking-wider"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Maquetación del Ticket de Comanda Térmica (Visible sólo al imprimir) */}
+      {orderToPrint && (
+        <div className="print-ticket-container" style={{
+          display: 'none',
+          width: '80mm',
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#000',
+          lineHeight: '1.4',
+          padding: '10px'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+            <h2 style={{ margin: '0 0 5px 0', fontSize: '16px', fontWeight: 'bold' }}>{orderToPrint.businesses?.name}</h2>
+            <p style={{ margin: '0', fontSize: '12px' }}>TENTACIÓN FOOD STORE</p>
+            <p style={{ margin: '5px 0 0 0' }}>--------------------------------</p>
+          </div>
+          
+          <div style={{ marginBottom: '10px' }}>
+            <p style={{ margin: '2px 0' }}><strong>PEDIDO:</strong> #{orderToPrint.id.split('-')[0]}</p>
+            <p style={{ margin: '2px 0' }}><strong>FECHA:</strong> {new Date(orderToPrint.created_at).toLocaleString()}</p>
+            <p style={{ margin: '2px 0' }}><strong>CLIENTE:</strong> {orderToPrint.customer_name || orderToPrint.profiles?.name || 'Cliente'}</p>
+            {orderToPrint.customer_phone && <p style={{ margin: '2px 0' }}><strong>TEL:</strong> {orderToPrint.customer_phone}</p>}
+            {orderToPrint.delivery_address && <p style={{ margin: '2px 0' }}><strong>ENTREGA:</strong> {orderToPrint.delivery_address}</p>}
+            <p style={{ margin: '5px 0 0 0' }}>--------------------------------</p>
+          </div>
+
+          <div style={{ marginBottom: '10px' }}>
+            <p style={{ margin: '2px 0', fontWeight: 'bold' }}>CANT x PRODUCTO</p>
+            <p style={{ margin: '2px 0' }}>--------------------------------</p>
+            {orderToPrint.order_items?.map((item: any) => (
+              <div key={item.id} style={{ marginBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                  <span>{item.quantity} x {item.products?.name}</span>
+                </div>
+                
+                {item.selected_size && (
+                  <div style={{ fontSize: '10px', marginLeft: '10px', color: '#555' }}>- Tamaño: {item.selected_size}</div>
+                )}
+                
+                {item.selected_modifiers && Object.entries(item.selected_modifiers).map(([group, opts]: [string, any]) => {
+                  const optsString = Array.isArray(opts) ? opts.map(o => {
+                    if (typeof o === 'string') return o;
+                    const q = o.quantity ? `${o.quantity}x ` : '';
+                    const n = o.name || o;
+                    return `${q}${n}`;
+                  }).join(', ') : opts;
+                  return (
+                    <div key={group} style={{ fontSize: '10px', marginLeft: '10px', color: '#555' }}>
+                      - {group}: {optsString}
+                    </div>
+                  );
+                })}
+
+                {item.selected_extras && item.selected_extras.length > 0 && (
+                  <div style={{ fontSize: '10px', marginLeft: '10px', color: '#555' }}>
+                    - Extras: {item.selected_extras.map((e: any) => e.optionName).join(', ')}
+                  </div>
+                )}
+
+                {item.notes && (
+                  <div style={{ fontSize: '10px', marginLeft: '10px', fontStyle: 'italic', color: '#f97316' }}>
+                    Nota: "{item.notes}"
+                  </div>
+                )}
+              </div>
+            ))}
+            <p style={{ margin: '5px 0 0 0' }}>--------------------------------</p>
+          </div>
+
+          <div style={{ marginBottom: '10px' }}>
+            {orderToPrint.notes && (
+              <div style={{ marginBottom: '5px' }}>
+                <p style={{ margin: '0' }}><strong>NOTAS PEDIDO:</strong></p>
+                <p style={{ margin: '2px 0', fontStyle: 'italic' }}>{orderToPrint.notes}</p>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold', marginTop: '5px' }}>
+              <span>TOTAL:</span>
+              <span>${orderToPrint.total}</span>
+            </div>
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: '15px', fontSize: '10px' }}>
+            <p style={{ margin: '0' }}>¡Gracias por tu compra!</p>
+            <p style={{ margin: '2px 0' }}>*** COMANDA DE COCINA ***</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
