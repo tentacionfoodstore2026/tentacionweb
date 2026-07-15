@@ -40,7 +40,7 @@ export const Navbar = () => {
                   <img
                     src={portalSettings.logo_url}
                     alt={portalSettings.name || 'Tentación Food Store'}
-                    className="h-10 object-contain"
+                    className="h-12 object-contain"
                   />
                 ) : (
                   <>
@@ -148,7 +148,7 @@ export const Navbar = () => {
                     <img
                       src={portalSettings.logo_url}
                       alt={portalSettings.name || 'Tentación Food Store'}
-                      className="h-8 object-contain"
+                      className="h-10 object-contain"
                     />
                   ) : (
                     <>

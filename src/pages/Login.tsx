@@ -116,7 +116,7 @@ export const Login = () => {
             <img
               src={portalSettings.logo_url}
               alt={portalSettings.name || 'Tentación Food Store'}
-              className="h-12 object-contain mx-auto mb-2"
+              className="h-16 object-contain mx-auto mb-2"
             />
           ) : (
             <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-dark font-medium text-2xl mx-auto mb-2 shadow-lg shadow-primary/20">

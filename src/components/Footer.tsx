@@ -15,7 +15,7 @@ export const Footer = () => {
                 <img
                   src={portalSettings.logo_url}
                   alt={portalSettings.name || 'Tentación Food Store'}
-                  className="h-10 object-contain"
+                  className="h-14 object-contain"
                 />
               ) : (
                 <>
