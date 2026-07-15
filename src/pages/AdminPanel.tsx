@@ -2625,6 +2625,9 @@ export const AdminPanel = () => {
     <div className="min-h-screen bg-surface pt-16 flex">
       <style>
         {`
+          .print-ticket-container {
+            display: none;
+          }
           @media print {
             aside, nav, .no-print, button, input {
               display: none !important;
@@ -2658,6 +2661,7 @@ export const AdminPanel = () => {
               visibility: visible;
             }
             body.printing-ticket .print-ticket-container {
+              display: block !important;
               position: absolute;
               left: 0;
               top: 0;
@@ -5808,7 +5812,6 @@ export const AdminPanel = () => {
       {/* Maquetación del Ticket de Comanda Térmica (Visible sólo al imprimir) */}
       {orderToPrint && (
         <div className="print-ticket-container" style={{
-          display: 'none',
           width: '80mm',
           fontFamily: 'monospace',
           fontSize: '12px',
