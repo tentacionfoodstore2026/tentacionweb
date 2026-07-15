@@ -2,14 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useStore';
 import { motion } from 'motion/react';
-import { Mail, Lock, User as UserIcon, ArrowRight, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export const Login = () => {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -19,8 +22,34 @@ export const Login = () => {
     setLoading(true);
     setError(null);
 
+    // Email validation: must have @ and a dot separating the domain
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      setError('Por favor, ingresa un correo electrónico válido (debe contener @ y un punto en el dominio).');
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isRegister) {
+        // Name validation: minimum 5 letters
+        if (name.trim().length < 5) {
+          throw new Error('El nombre completo no debe quedar vacío y debe tener al menos 5 caracteres.');
+        }
+
+        // Password complexity validation: uppercase, lowercase, number
+        const hasUppercase = /[A-Z]/.test(password);
+        const hasLowercase = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        if (!hasUppercase || !hasLowercase || !hasNumber) {
+          throw new Error('La contraseña debe contener al menos una letra mayúscula, letras minúsculas y un número.');
+        }
+
+        // Confirm password validation: identical passwords
+        if (password !== confirmPassword) {
+          throw new Error('Las contraseñas no coinciden.');
+        }
+
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -46,6 +75,15 @@ export const Login = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleToggleMode = () => {
+    setIsRegister(!isRegister);
+    setPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setError(null);
   };
 
   const handleGoogleLogin = async () => {
@@ -127,15 +165,46 @@ export const Login = () => {
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
               <input 
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-surface border border-surface rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark"
+                className="w-full bg-surface border border-surface rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark"
                 placeholder="••••••••"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-dark transition-colors focus:outline-none"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
           </div>
+
+          {isRegister && (
+            <div>
+              <label className="block text-sm font-medium text-muted mb-2">Confirmar Contraseña</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={20} />
+                <input 
+                  type={showConfirmPassword ? "text" : "password"}
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-surface border border-surface rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-dark"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-dark transition-colors focus:outline-none"
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+          )}
 
 
 
@@ -187,7 +256,7 @@ export const Login = () => {
 
         <div className="mt-8 text-center">
           <button 
-            onClick={() => setIsRegister(!isRegister)}
+            onClick={handleToggleMode}
             className="text-accent font-medium hover:underline"
           >
             {isRegister ? '¿Ya tienes cuenta? Ingresa' : '¿No tienes cuenta? Regístrate'}
