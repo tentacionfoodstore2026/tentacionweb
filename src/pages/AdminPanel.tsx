@@ -5820,12 +5820,16 @@ export const AdminPanel = () => {
           padding: '10px'
         }}>
           <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-            <h2 style={{ margin: '0 0 5px 0', fontSize: '16px', fontWeight: 'bold' }}>{orderToPrint.businesses?.name}</h2>
-            <p style={{ margin: '0', fontSize: '12px' }}>TENTACIÓN FOOD STORE</p>
+            <h2 style={{ margin: '0 0 3px 0', fontSize: '15px', fontWeight: 'bold' }}>*** COMANDA DE COCINA ***</h2>
+            <h3 style={{ margin: '0 0 5px 0', fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+              {orderToPrint.businesses?.name}
+            </h3>
+            <p style={{ margin: '0', fontSize: '10px', color: '#555' }}>TENTACIÓN FOOD STORE</p>
             <p style={{ margin: '5px 0 0 0' }}>--------------------------------</p>
           </div>
           
           <div style={{ marginBottom: '10px' }}>
+            <p style={{ margin: '2px 0', fontSize: '13px' }}><strong>COMERCIO:</strong> <span style={{ textTransform: 'uppercase' }}>{orderToPrint.businesses?.name || 'No especificado'}</span></p>
             <p style={{ margin: '2px 0' }}><strong>PEDIDO:</strong> #{orderToPrint.id.split('-')[0]}</p>
             <p style={{ margin: '2px 0' }}><strong>FECHA:</strong> {new Date(orderToPrint.created_at).toLocaleString()}</p>
             <p style={{ margin: '2px 0' }}><strong>CLIENTE:</strong> {orderToPrint.customer_name || orderToPrint.profiles?.name || 'Cliente'}</p>
