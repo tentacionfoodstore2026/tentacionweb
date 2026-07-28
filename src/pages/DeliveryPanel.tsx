@@ -4,20 +4,21 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Package, Truck, CheckCircle2, MapPin, Phone, User, Clock, 
   ChevronRight, AlertCircle, Navigation, Star, RefreshCw,
-  Bell, ShoppingBag, MessageSquare, XCircle, ArrowRight
+  Bell, ShoppingBag, MessageSquare, XCircle, ArrowRight, UtensilsCrossed, Lock
 } from 'lucide-react';
 import { 
-  fetchAvailableOrders, fetchDriverOrders, claimOrder, 
+  fetchAvailableOrders, fetchDriverOrders, fetchIncomingOrders, claimOrder, 
   updateOrderStatus, fetchNotifications, markAllNotificationsRead,
   subscribeToOrders, subscribeToNotifications,
   FullOrder, OrderNotification, STATUS_LABELS, STATUS_COLORS
 } from '../lib/orderService';
 
-type Tab = 'available' | 'my_orders' | 'notifications';
+type Tab = 'incoming' | 'available' | 'my_orders' | 'notifications';
 
 export const DeliveryPanel = () => {
   const { user, portalSettings } = useAuthStore();
   const [activeTab, setActiveTab] = useState<Tab>('available');
+  const [incomingOrders, setIncomingOrders] = useState<FullOrder[]>([]);
   const [availableOrders, setAvailableOrders] = useState<FullOrder[]>([]);
   const [myOrders, setMyOrders] = useState<FullOrder[]>([]);
   const [notifications, setNotifications] = useState<OrderNotification[]>([]);
@@ -33,11 +34,13 @@ export const DeliveryPanel = () => {
     if (!user) return;
     setIsLoading(true);
     try {
-      const [available, mine, notifs] = await Promise.all([
+      const [incoming, available, mine, notifs] = await Promise.all([
+        fetchIncomingOrders(),
         fetchAvailableOrders(),
         fetchDriverOrders(user.id),
         fetchNotifications(user.id, 'repartidor')
       ]);
+      setIncomingOrders(incoming);
       setAvailableOrders(available);
       setMyOrders(mine);
       setNotifications(notifs);
@@ -54,15 +57,31 @@ export const DeliveryPanel = () => {
 
     // Realtime subscriptions
     const ordersChannel = subscribeToOrders((updatedOrder) => {
-      setAvailableOrders(prev => {
-        if (updatedOrder.status === 'ready') {
+      // When kitchen confirms (confirmed): add to incoming, remove from available
+      if (updatedOrder.status === 'confirmed') {
+        setIncomingOrders(prev => {
           const exists = prev.find(o => o.id === updatedOrder.id);
           if (!exists) return [updatedOrder as FullOrder, ...prev];
           return prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o);
-        }
-        // Remove from available if no longer ready
-        return prev.filter(o => o.id !== updatedOrder.id || updatedOrder.status === 'ready');
-      });
+        });
+        setAvailableOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
+      }
+      // When kitchen marks ready: remove from incoming, add to available
+      else if (updatedOrder.status === 'ready') {
+        setIncomingOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
+        setAvailableOrders(prev => {
+          const exists = prev.find(o => o.id === updatedOrder.id);
+          if (!exists) return [updatedOrder as FullOrder, ...prev];
+          return prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o);
+        });
+      }
+      // When assigned/picked_up/delivered: remove from available and incoming
+      else if (['assigned', 'picked_up', 'delivering', 'delivered', 'cancelled'].includes(updatedOrder.status)) {
+        setIncomingOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
+        setAvailableOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
+      }
+
+      // Always update my orders
       setMyOrders(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o));
     });
 
@@ -171,8 +190,9 @@ export const DeliveryPanel = () => {
         )}
 
         {/* Tabs */}
-        <div className="flex bg-white rounded-2xl border border-gray-100 shadow-sm p-1 mb-6">
+        <div className="flex bg-white rounded-2xl border border-gray-100 shadow-sm p-1 mb-6 gap-1">
           {[
+            { id: 'incoming', label: 'En Cocina', icon: UtensilsCrossed, count: incomingOrders.length },
             { id: 'available', label: 'Disponibles', icon: Package, count: availableOrders.length },
             { id: 'my_orders', label: 'Mis Pedidos', icon: Truck, count: myOrders.filter(o => o.status !== 'delivered').length },
             { id: 'notifications', label: 'Alertas', icon: Bell, count: unreadCount },
@@ -180,13 +200,15 @@ export const DeliveryPanel = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as Tab)}
-              className={`flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-2xl text-sm font-semibold transition-all ${
+              className={`flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === tab.id
-                  ? 'bg-amber-500 text-white shadow-sm'
+                  ? tab.id === 'incoming'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-amber-500 text-white shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              <tab.icon size={16} />
+              <tab.icon size={14} />
               <span className="hidden sm:inline">{tab.label}</span>
               {tab.count > 0 && (
                 <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
@@ -198,6 +220,107 @@ export const DeliveryPanel = () => {
             </button>
           ))}
         </div>
+
+        {/* ── INCOMING (EN COCINA) ── */}
+        {activeTab === 'incoming' && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3 flex items-start space-x-3">
+              <UtensilsCrossed size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-700 leading-relaxed">
+                <span className="font-semibold">Pedidos aceptados por cocina.</span> Puedes ir acercándote al local. Podrás tomarlos cuando la cocina los marque como <strong>listos</strong>.
+              </p>
+            </div>
+
+            {isLoading ? (
+              <div className="text-center py-12">
+                <RefreshCw size={32} className="text-blue-500 animate-spin mx-auto mb-3" />
+                <p className="text-gray-500">Cargando...</p>
+              </div>
+            ) : incomingOrders.length === 0 ? (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-16 bg-white rounded-2xl border border-gray-100"
+              >
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <UtensilsCrossed size={32} className="text-blue-400" />
+                </div>
+                <h3 className="font-medium text-gray-800 mb-1">Nada en cocina</h3>
+                <p className="text-sm text-gray-500">Cuando llegue un pedido a cocina aparecerá aquí.</p>
+              </motion.div>
+            ) : (
+              incomingOrders.map((order) => (
+                <motion.div
+                  key={order.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden"
+                >
+                  {/* Status badge */}
+                  <div className="bg-blue-600 px-4 py-2 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <UtensilsCrossed size={14} className="text-white" />
+                      <span className="text-xs font-semibold text-white">Preparándose en cocina...</span>
+                    </div>
+                    <span className="text-xs text-blue-200">#{order.id.slice(0, 8).toUpperCase()}</span>
+                  </div>
+
+                  {/* Business & Pickup */}
+                  <div className="p-4 bg-amber-50/50 border-b border-gray-50">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-8 h-8 bg-amber-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+                        <ShoppingBag size={16} className="text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase font-semibold">Retirar en</p>
+                        <p className="font-medium text-gray-900">{order.businesses?.name}</p>
+                        <p className="text-xs text-gray-500">{portalSettings?.pickup_address || order.businesses?.address}</p>
+                        <a 
+                          href={`https://maps.google.com/?q=${encodeURIComponent(portalSettings?.pickup_address || order.businesses?.address || '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1.5 flex items-center space-x-1 text-[11px] text-amber-600 font-semibold hover:underline"
+                        >
+                          <Navigation size={10} />
+                          <span>Abrir Retiro en Maps</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Delivery Address */}
+                  <div className="p-4 border-b border-gray-50">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-8 h-8 bg-green-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+                        <MapPin size={16} className="text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase font-semibold">Entregar en</p>
+                        <p className="font-medium text-gray-900">{order.delivery_address}</p>
+                        {order.delivery_reference && (
+                          <p className="text-xs text-gray-500">{order.delivery_reference}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total + Locked button */}
+                  <div className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-400">Total</p>
+                      <p className="text-xl font-semibold text-amber-600">${order.total?.toLocaleString()}</p>
+                      <span className="text-xs text-gray-500">{order.payment_method === 'cash' ? '💵 Efectivo' : '💳 Tarjeta'}</span>
+                    </div>
+                    <div className="flex items-center space-x-2 bg-gray-100 text-gray-500 px-4 py-3 rounded-2xl">
+                      <Lock size={16} />
+                      <span className="text-sm font-semibold">Esperando que termine...</span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        )}
 
         {/* ── AVAILABLE ORDERS ── */}
         {activeTab === 'available' && (
@@ -457,7 +580,7 @@ export const DeliveryPanel = () => {
                               disabled={updatingId === order.id}
                               className="w-full bg-amber-500 text-white py-3.5 rounded-2xl font-medium text-sm flex items-center justify-center space-x-2 shadow-lg shadow-amber-200 hover:bg-amber-600 transition-all disabled:opacity-50"
                             >
-                              {updatingId === order.id ? <RefreshCw size={18} className="animate-spin" /> : <><CheckCircle2 size={18} /><span>Confirmé el Retiro</span></>}
+                              {updatingId === order.id ? <RefreshCw size={18} className="animate-spin" /> : <><CheckCircle2 size={18} /><span>Confirmé el Retiro en el Local</span></>}
                             </button>
                           )}
 
@@ -467,7 +590,7 @@ export const DeliveryPanel = () => {
                               disabled={updatingId === order.id}
                               className="w-full bg-green-500 text-white py-3.5 rounded-2xl font-medium text-sm flex items-center justify-center space-x-2 shadow-lg shadow-green-200 hover:bg-green-600 transition-all disabled:opacity-50"
                             >
-                              {updatingId === order.id ? <RefreshCw size={18} className="animate-spin" /> : <><CheckCircle2 size={18} /><span>Pedido Entregado ✓</span></>}
+                              {updatingId === order.id ? <RefreshCw size={18} className="animate-spin" /> : <><CheckCircle2 size={18} /><span>Pedido Entregado al Cliente ✓</span></>}
                             </button>
                           )}
 

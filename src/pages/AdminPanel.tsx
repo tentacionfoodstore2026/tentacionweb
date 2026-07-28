@@ -3441,14 +3441,16 @@ export const AdminPanel = () => {
                               <Truck size={18} />
                               <span>✨ Listo — Notificar Conductores</span>
                             </button>
-                          ) : ['ready', 'assigned'].includes(order.status) ? (
-                            <button 
-                              onClick={() => updateOrderStatus(order.id, 'picked_up')}
-                              className="w-full bg-orange-500 text-white py-3 rounded-2xl font-bold text-sm hover:bg-orange-600 transition-all flex items-center justify-center space-x-2"
-                            >
-                              <Send size={18} />
-                              <span>Entregado a Conductor</span>
-                            </button>
+                          ) : order.status === 'ready' ? (
+                            <div className="flex items-center justify-center space-x-2 bg-purple-50 text-purple-700 py-3 rounded-2xl text-sm font-bold">
+                              <Clock size={16} />
+                              <span>Esperando conductor...</span>
+                            </div>
+                          ) : order.status === 'assigned' ? (
+                            <div className="flex items-center justify-center space-x-2 bg-indigo-50 text-indigo-700 py-3 rounded-2xl text-sm font-bold">
+                              <Truck size={16} />
+                              <span>Conductor en camino al local</span>
+                            </div>
                           ) : (
                             <div className="flex items-center justify-center space-x-2 bg-green-50 text-green-700 py-3 rounded-2xl text-sm font-bold">
                               <CheckCircle size={16} />

@@ -103,6 +103,27 @@ export async function fetchAvailableOrders(): Promise<FullOrder[]> {
       order_items(*, products(name, image))
     `)
     .eq('status', 'ready')
+    .is('driver_id', null)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as FullOrder[];
+}
+
+/**
+ * Fetch orders confirmed by kitchen (status = confirmed) — drivers can see these
+ * as a heads-up so they can head to the store, but CANNOT claim them yet.
+ */
+export async function fetchIncomingOrders(): Promise<FullOrder[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      profiles(name, email),
+      businesses(name, whatsapp, address),
+      order_items(*, products(name, image))
+    `)
+    .eq('status', 'confirmed')
     .order('created_at', { ascending: false });
 
   if (error) throw error;
