@@ -1540,7 +1540,7 @@ export const AdminPanel = () => {
       // Fetch Orders — use left join to get profile & business info
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name)), promotions(code)')
+        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name, category)), promotions(code)')
         .order('created_at', { ascending: false });
       if (orderError) console.error('[AdminPanel] Error fetching orders:', orderError);
       if (orderData) {
@@ -1577,7 +1577,7 @@ export const AdminPanel = () => {
     const reloadOrders = () => {
       supabase
         .from('orders')
-        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name)), promotions(code)')
+        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name, category)), promotions(code)')
         .order('created_at', { ascending: false })
         .then(({ data }) => { if (data) setOrders(data); });
     };
@@ -3204,7 +3204,7 @@ export const AdminPanel = () => {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <button 
-                            onClick={() => alert('Detalles del pedido:\n' + order.order_items?.map((i: any) => `- ${i.quantity}x ${i.products?.name} ($${i.price})`).join('\n'))}
+                            onClick={() => alert('Detalles del pedido:\n' + order.order_items?.map((i: any) => `- ${i.quantity}x ${i.products?.category ? `${i.products.category} - ` : ''}${i.products?.name} ($${i.price})`).join('\n'))}
                             className="text-primary hover:underline text-xs font-medium"
                           >
                             Ver Items
@@ -3403,7 +3403,9 @@ export const AdminPanel = () => {
                                 <div className="flex items-start space-x-2">
                                   <span className="bg-primary/20 text-primary w-5 h-5 rounded flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{item.quantity}</span>
                                   <div className="flex-1">
-                                    <span className="font-semibold text-dark text-xs leading-tight">{item.products?.name}</span>
+                                    <span className="font-semibold text-dark text-xs leading-tight">
+                                      {item.products?.category ? `${item.products.category} - ` : ''}{item.products?.name}
+                                    </span>
                                     
                                     {item.selected_size && (
                                       <div className="text-[10px] text-primary font-medium mt-0.5">Tamaño: {item.selected_size}</div>
@@ -3564,7 +3566,9 @@ export const AdminPanel = () => {
                                   <div className="flex items-center space-x-3 mb-3">
                                     <span className="bg-primary text-dark w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shadow-sm shrink-0">{item.quantity}</span>
                                     <div>
-                                      <span className="font-bold text-dark text-base">{item.products?.name || 'Producto'}</span>
+                                      <span className="font-bold text-dark text-base">
+                                        {item.products?.category ? `${item.products.category} - ` : ''}{item.products?.name || 'Producto'}
+                                      </span>
                                       {item.selected_size && (
                                         <span className="ml-2 px-2 py-0.5 bg-dark text-white rounded-md text-[10px] font-bold uppercase tracking-wider align-middle">
                                           {item.selected_size}
@@ -5897,7 +5901,7 @@ export const AdminPanel = () => {
             {orderToPrint.order_items?.map((item: any) => (
               <div key={item.id} style={{ marginBottom: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                  <span>{item.quantity} x {item.products?.name}</span>
+                  <span>{item.quantity} x {item.products?.category ? `${item.products.category} - ` : ''}{item.products?.name}</span>
                 </div>
                 
                 {item.selected_size && (
