@@ -1574,19 +1574,19 @@ export const AdminPanel = () => {
 
     fetchData();
 
-    // Realtime listener: refresh orders list when any order is inserted or updated
+    const reloadOrders = () => {
+      supabase
+        .from('orders')
+        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name)), promotions(code)')
+        .order('created_at', { ascending: false })
+        .then(({ data }) => { if (data) setOrders(data); });
+    };
+
+    // Realtime listener: refresh orders list when any order or order_items is inserted or updated
     const ordersChannel = supabase
       .channel('admin-orders-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
-        supabase
-          .from('orders')
-          .select('*, profiles!orders_user_id_fkey(name, email), businesses(name, address), order_items(*, products(name))')
-          .order('created_at', { ascending: false })
-          .then(({ data }) => { if (data) setOrders(data); });
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
-        setOrders(prev => prev.map(o => o.id === payload.new.id ? { ...o, ...payload.new } : o));
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, reloadOrders)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, reloadOrders)
       .subscribe();
 
     return () => { ordersChannel.unsubscribe(); };

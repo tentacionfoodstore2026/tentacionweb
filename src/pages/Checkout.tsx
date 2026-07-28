@@ -290,15 +290,15 @@ export const Checkout = () => {
           selected_modifiers: modifiers,
           selected_size: item.selectedSize ? item.selectedSize.name : null,
           selected_extras: extras,
-          notes: item.notes || null,
-          category_name: item.category || null
+          notes: item.notes || null
         };
       });
 
       if ((import.meta as any).env.DEV) console.log('[Checkout] Inserting order items:', JSON.stringify(orderItems));
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) {
-        if ((import.meta as any).env.DEV) console.error('[Checkout] Error saving order items:', itemsError.message, itemsError.details, itemsError.hint);
+        console.error('[Checkout] Error saving order items:', itemsError.message, itemsError.details, itemsError.hint);
+        throw new Error('Error al registrar productos del pedido: ' + itemsError.message);
       }
 
       // 2.5 Log coupon usage in the audit table if applicable
