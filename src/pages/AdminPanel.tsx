@@ -2496,7 +2496,8 @@ export const AdminPanel = () => {
     }
   };
 
-  const filteredOrders = orders.filter(o => {
+  const filteredOrders = (orders || []).filter(o => {
+    if (!o || !o.id) return false;
     const matchesSearch = o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.profiles?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.businesses?.name?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -3218,7 +3219,8 @@ export const AdminPanel = () => {
           )}
 
 {activeTab === 'kitchen' && (() => {
-            const filteredKitchenOrders = orders.filter(o => {
+            const filteredKitchenOrders = (orders || []).filter(o => {
+              if (!o || !o.id) return false;
               const matchesSearch = o.id.toLowerCase().includes(kitchenSearchQuery.toLowerCase()) ||
                 o.businesses?.name?.toLowerCase().includes(kitchenSearchQuery.toLowerCase());
               
@@ -3362,7 +3364,7 @@ export const AdminPanel = () => {
                         }`}>
                           <div>
                             <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Pedido #{order.id.split('-')[0]}</p>
-                            <p className="text-xs text-muted">{new Date(order.created_at).toLocaleDateString()} - {new Date(order.created_at).toLocaleTimeString()}</p>
+                            <p className="text-xs text-muted">Fecha: {new Date(order.created_at).toLocaleDateString()} - Hora: {new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                           </div>
                           <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${getStatusInfo(order.status).color}`}>
                             {getStatusInfo(order.status).label}
