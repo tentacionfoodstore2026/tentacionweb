@@ -415,6 +415,7 @@ export const useCartStore = create<CartState>()(
             i.cartItemId === cartItemId ? { ...i, quantity } : i
           ),
         });
+      },
       updateNotes: (cartItemId, notes) => {
         set({
           items: get().items.map((i) =>
