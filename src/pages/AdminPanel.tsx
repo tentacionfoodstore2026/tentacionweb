@@ -3230,7 +3230,7 @@ export const AdminPanel = () => {
                 new Date(o.created_at).toISOString().split('T')[0] === kitchenDateFilter;
               
               const matchesStatus = kitchenStatusFilter === 'active' 
-                ? ['pending', 'confirmed', 'ready', 'picked_up', 'delivering'].includes(o.status)
+                ? ['pending', 'confirmed', 'ready', 'assigned', 'picked_up', 'delivering'].includes(o.status)
                 : kitchenStatusFilter === 'delivering' 
                   ? ['picked_up', 'delivering'].includes(o.status)
                   : o.status === kitchenStatusFilter;
