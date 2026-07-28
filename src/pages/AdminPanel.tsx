@@ -3392,9 +3392,9 @@ export const AdminPanel = () => {
                                           const optsString = Array.isArray(opts) ? opts.map(o => {
                                             if (typeof o === 'string') return o;
                                             const q = o.quantity ? `${o.quantity}x ` : '';
-                                            const n = o.name || o;
+                                            const n = o.name || o.optionName || o;
                                             return `${q}${n}`;
-                                          }).join(', ') : opts;
+                                          }).join(', ') : (typeof opts === 'object' && opts !== null ? (opts.name || opts.optionName || JSON.stringify(opts)) : String(opts));
                                           return <div key={group}><span className="font-medium text-dark/70">{group}:</span> {optsString}</div>;
                                         })}
                                       </div>
@@ -5877,9 +5877,9 @@ export const AdminPanel = () => {
                   const optsString = Array.isArray(opts) ? opts.map(o => {
                     if (typeof o === 'string') return o;
                     const q = o.quantity ? `${o.quantity}x ` : '';
-                    const n = o.name || o;
+                    const n = o.name || o.optionName || o;
                     return `${q}${n}`;
-                  }).join(', ') : opts;
+                  }).join(', ') : (typeof opts === 'object' && opts !== null ? (opts.name || opts.optionName || JSON.stringify(opts)) : String(opts));
                   return (
                     <div key={group} style={{ fontSize: '10px', marginLeft: '10px', color: '#555' }}>
                       - {group}: {optsString}

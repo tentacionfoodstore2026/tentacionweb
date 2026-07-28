@@ -704,9 +704,9 @@ export const Checkout = () => {
                             const optsString = Array.isArray(opts) ? opts.map(o => {
                               if (typeof o === 'string') return o;
                               const q = o.quantity ? `${o.quantity}x ` : '';
-                              const n = o.name || o;
+                              const n = o.name || o.optionName || o;
                               return `${q}${n}`;
-                            }).join(', ') : opts;
+                            }).join(', ') : (typeof opts === 'object' && opts !== null ? (opts.name || opts.optionName || JSON.stringify(opts)) : String(opts));
                             return <div key={group}><span className="font-medium">{group}:</span> {optsString}</div>;
                           })}
                         </div>
