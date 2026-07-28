@@ -16,7 +16,7 @@ import {
 type Tab = 'available' | 'my_orders' | 'notifications';
 
 export const DeliveryPanel = () => {
-  const { user } = useAuthStore();
+  const { user, portalSettings } = useAuthStore();
   const [activeTab, setActiveTab] = useState<Tab>('available');
   const [availableOrders, setAvailableOrders] = useState<FullOrder[]>([]);
   const [myOrders, setMyOrders] = useState<FullOrder[]>([]);
@@ -254,7 +254,16 @@ export const DeliveryPanel = () => {
                       <div>
                         <p className="text-xs text-gray-500 uppercase font-semibold">Retirar en</p>
                         <p className="font-medium text-gray-900">{order.businesses?.name}</p>
-                        <p className="text-xs text-gray-500">{order.businesses?.address}</p>
+                        <p className="text-xs text-gray-500">{portalSettings?.pickup_address || order.businesses?.address}</p>
+                        <a 
+                          href={`https://maps.google.com/?q=${encodeURIComponent(portalSettings?.pickup_address || order.businesses?.address || '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1.5 flex items-center space-x-1 text-[11px] text-amber-600 font-semibold hover:underline"
+                        >
+                          <Navigation size={10} />
+                          <span>Abrir Retiro en Maps</span>
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -371,8 +380,28 @@ export const DeliveryPanel = () => {
                             </div>
                           </div>
 
+                          {/* Dirección de Retiro */}
+                          <div className="bg-amber-50/50 rounded-2xl p-3 border border-amber-100">
+                            <p className="text-xs text-amber-600 mb-1 flex items-center space-x-1">
+                              <ShoppingBag size={12} />
+                              <span>Dirección de Retiro ({order.businesses?.name})</span>
+                            </p>
+                            <p className="font-medium text-sm text-gray-800">
+                              {portalSettings?.pickup_address || order.businesses?.address || 'Dirección de retiro no especificada'}
+                            </p>
+                            <a 
+                              href={`https://maps.google.com/?q=${encodeURIComponent(portalSettings?.pickup_address || order.businesses?.address || '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 flex items-center space-x-1 text-xs text-amber-600 font-semibold hover:underline"
+                            >
+                              <Navigation size={12} />
+                              <span>Abrir Retiro en Maps</span>
+                            </a>
+                          </div>
+
                           <div className="bg-green-50 rounded-2xl p-3">
-                            <p className="text-xs text-gray-400 mb-1 flex items-center space-x-1"><MapPin size={12}/><span>Dirección</span></p>
+                            <p className="text-xs text-gray-400 mb-1 flex items-center space-x-1"><MapPin size={12}/><span>Dirección de Entrega</span></p>
                             <p className="font-medium text-sm text-gray-800">{order.delivery_address}</p>
                             {order.delivery_reference && <p className="text-xs text-gray-500 mt-1">{order.delivery_reference}</p>}
                             <a 

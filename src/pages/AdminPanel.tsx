@@ -1452,6 +1452,7 @@ export const AdminPanel = () => {
     support_email: 'soporte@tentacion.com',
     support_phone: '+58 412 000 0000',
     address: 'Arica, Chile',
+    pickup_address: '',
     maintenance_mode: false,
     primary_color: '#fbbf24',
     logo_url: '',
@@ -3353,7 +3354,7 @@ export const AdminPanel = () => {
                         }`}>
                           <div>
                             <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Pedido #{order.id.split('-')[0]}</p>
-                            <p className="text-xs text-muted">{new Date(order.created_at).toLocaleTimeString()}</p>
+                            <p className="text-xs text-muted">{new Date(order.created_at).toLocaleDateString()} - {new Date(order.created_at).toLocaleTimeString()}</p>
                           </div>
                           <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${getStatusInfo(order.status).color}`}>
                             {getStatusInfo(order.status).label}
@@ -4289,6 +4290,17 @@ export const AdminPanel = () => {
                         type="text"
                         value={portalSettings.address}
                         onChange={e => setPortalSettings({...portalSettings, address: e.target.value})}
+                        className="w-full bg-white border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium text-dark text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-muted uppercase tracking-widest mb-2">Dirección de Retiro (Cocina Unificada - Conductores)</label>
+                      <input
+                        type="text"
+                        value={portalSettings.pickup_address || ''}
+                        onChange={e => setPortalSettings({...portalSettings, pickup_address: e.target.value})}
+                        placeholder="Ej. Av. Dieciocho de Septiembre 123, Arica"
                         className="w-full bg-white border border-surface rounded-2xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 font-medium text-dark text-sm"
                       />
                     </div>

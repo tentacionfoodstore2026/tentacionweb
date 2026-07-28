@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.portal_settings (
   support_email text DEFAULT 'soporte@tentacion.com',
   support_phone text DEFAULT '+58 412 000 0000',
   address text DEFAULT 'Arica, Chile',
+  pickup_address text DEFAULT 'Dirección de Cocina Unificada',
   maintenance_mode boolean DEFAULT false,
   primary_color text DEFAULT '#fbbf24',
   logo_url text,

@@ -200,6 +200,7 @@ export interface PortalSettings {
   support_email: string;
   support_phone: string;
   address: string;
+  pickup_address?: string;
   maintenance_mode: boolean;
   primary_color: string;
   logo_url: string;
