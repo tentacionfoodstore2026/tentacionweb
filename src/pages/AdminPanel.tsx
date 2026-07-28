@@ -2016,6 +2016,11 @@ export const AdminPanel = () => {
     }
 
     try {
+      let finalAvatarUrl = currentDriver.avatar || '';
+      if (finalAvatarUrl.startsWith('data:image')) {
+        finalAvatarUrl = await uploadImageToStorage(finalAvatarUrl, 'images');
+      }
+
       if (currentDriver.id) {
         // ACTUALIZAR CONDUCTOR EXISTENTE
         // 1. Actualizar perfil principal
@@ -2024,7 +2029,8 @@ export const AdminPanel = () => {
           .update({
             name: currentDriver.name,
             phone: currentDriver.phone,
-            status: currentDriver.status === 'blocked' ? 'blocked' : (currentDriver.status === 'inactive' ? 'inactive' : 'active')
+            status: currentDriver.status === 'blocked' ? 'blocked' : (currentDriver.status === 'inactive' ? 'inactive' : 'active'),
+            avatar_url: finalAvatarUrl
           })
           .eq('id', currentDriver.id);
 
@@ -2056,7 +2062,7 @@ export const AdminPanel = () => {
         if (dpError) throw dpError;
 
         // Actualizar Zustand local
-        updateDriver(currentDriver as Driver);
+        updateDriver({ ...currentDriver, avatar: finalAvatarUrl } as Driver);
         alert('Conductor actualizado con éxito en Supabase.');
       } else {
         // CREAR NUEVO CONDUCTOR EN SUPABASE AUTH Y DB
@@ -2109,7 +2115,8 @@ export const AdminPanel = () => {
             email: currentDriver.email,
             role: 'repartidor',
             phone: currentDriver.phone,
-            status: 'active'
+            status: 'active',
+            avatar_url: finalAvatarUrl
           });
         if (profileError) console.error('Aviso: perfil principal ya creado o error:', profileError);
 
@@ -2139,6 +2146,7 @@ export const AdminPanel = () => {
         const newDriver: Driver = {
           ...currentDriver as Driver,
           id: newUserId,
+          avatar: finalAvatarUrl,
           status: 'active',
           rating: 5.0,
           totalDeliveries: 0,
