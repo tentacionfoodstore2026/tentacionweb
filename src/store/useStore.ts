@@ -326,6 +326,7 @@ interface CartState {
   clearAndAdd: (product: Product, selectedSize?: ProductSize, selectedExtras?: { groupName: string; optionName: string; price: number }[], quantity?: number, notes?: string, selected_modifiers?: any) => void;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
+  updateNotes: (cartItemId: string, notes: string) => void;
   clearCart: () => void;
   total: () => number;
 }
@@ -412,6 +413,12 @@ export const useCartStore = create<CartState>()(
         set({
           items: get().items.map((i) =>
             i.cartItemId === cartItemId ? { ...i, quantity } : i
+          ),
+        });
+      updateNotes: (cartItemId, notes) => {
+        set({
+          items: get().items.map((i) =>
+            i.cartItemId === cartItemId ? { ...i, notes } : i
           ),
         });
       },

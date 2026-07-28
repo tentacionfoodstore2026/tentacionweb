@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 export const Navbar = () => {
   const { user, logout } = useAuthStore();
   const portalSettings = useAuthStore((state) => state.portalSettings);
-  const { items, total, removeItem, updateQuantity } = useCartStore();
+  const { items, total, removeItem, updateQuantity, updateNotes } = useCartStore();
   const [isCartOpen, setIsCartOpen] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const navigate = useNavigate();
@@ -334,11 +334,16 @@ export const Navbar = () => {
                             Tamaño: {item.selectedSize.name}
                           </div>
                         )}
-                        {item.notes && (
-                          <div className="text-[10px] text-orange-600 bg-orange-50 p-1.5 rounded-lg mt-1 italic border border-orange-100">
-                            "{item.notes}"
-                          </div>
-                        )}
+                        {/* Indicación o nota especial para el producto */}
+                        <div className="mt-2">
+                          <input
+                            type="text"
+                            placeholder="Indicaciones (ej: No poner mayonesa...)"
+                            value={item.notes || ''}
+                            onChange={(e) => updateNotes(item.cartItemId, e.target.value)}
+                            className="w-full text-[11px] px-2.5 py-1.5 bg-surface/60 border border-surface focus:border-primary rounded-xl focus:outline-none text-dark placeholder:text-muted/60 transition-colors"
+                          />
+                        </div>
                         <div className="mt-2 flex items-center justify-between">
                           <div className="flex items-center space-x-3 bg-surface/50 rounded-2xl p-1">
                             <button 
