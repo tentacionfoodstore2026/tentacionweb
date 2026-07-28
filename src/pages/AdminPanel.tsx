@@ -2499,8 +2499,8 @@ export const AdminPanel = () => {
   const filteredOrders = (orders || []).filter(o => {
     if (!o || !o.id) return false;
     const matchesSearch = o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.profiles?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.businesses?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      (o.profiles?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (o.businesses?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
     const matchesBusiness = orderBusinessFilter === 'all' || o.business_id === orderBusinessFilter;
@@ -3222,7 +3222,7 @@ export const AdminPanel = () => {
             const filteredKitchenOrders = (orders || []).filter(o => {
               if (!o || !o.id) return false;
               const matchesSearch = o.id.toLowerCase().includes(kitchenSearchQuery.toLowerCase()) ||
-                o.businesses?.name?.toLowerCase().includes(kitchenSearchQuery.toLowerCase());
+                (o.businesses?.name || '').toLowerCase().includes(kitchenSearchQuery.toLowerCase());
               
               const matchesBusiness = kitchenBusinessFilter === 'all' || o.business_id === kitchenBusinessFilter;
               
