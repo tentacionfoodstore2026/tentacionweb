@@ -3219,6 +3219,18 @@ export const AdminPanel = () => {
           )}
 
 {activeTab === 'kitchen' && (() => {
+            const matchesStatusFilter = (o: any) => {
+              if (kitchenStatusFilter === 'active') {
+                return ['pending', 'confirmed', 'ready', 'assigned', 'picked_up', 'delivering'].includes(o.status);
+              }
+              if (kitchenStatusFilter === 'pending') return o.status === 'pending';
+              if (kitchenStatusFilter === 'confirmed') return ['confirmed', 'assigned'].includes(o.status);
+              if (kitchenStatusFilter === 'ready') return o.status === 'ready';
+              if (kitchenStatusFilter === 'delivering') return ['picked_up', 'delivering'].includes(o.status);
+              if (kitchenStatusFilter === 'delivered') return o.status === 'delivered';
+              return o.status === kitchenStatusFilter;
+            };
+
             const filteredKitchenOrders = (orders || []).filter(o => {
               if (!o || !o.id) return false;
               const matchesSearch = o.id.toLowerCase().includes(kitchenSearchQuery.toLowerCase()) ||
@@ -3229,14 +3241,19 @@ export const AdminPanel = () => {
               const matchesDate = !kitchenDateFilter || 
                 new Date(o.created_at).toISOString().split('T')[0] === kitchenDateFilter;
               
-              const matchesStatus = kitchenStatusFilter === 'active' 
-                ? ['pending', 'confirmed', 'ready', 'assigned', 'picked_up', 'delivering'].includes(o.status)
-                : kitchenStatusFilter === 'delivering' 
-                  ? ['picked_up', 'delivering'].includes(o.status)
-                  : o.status === kitchenStatusFilter;
+              const matchesStatus = matchesStatusFilter(o);
 
               return matchesSearch && matchesBusiness && matchesStatus && matchesDate;
             });
+
+            // Counters for kitchen tabs
+            const allOrdersList = orders || [];
+            const countActive = allOrdersList.filter(o => o?.id && ['pending', 'confirmed', 'ready', 'assigned', 'picked_up', 'delivering'].includes(o.status)).length;
+            const countPending = allOrdersList.filter(o => o?.id && o.status === 'pending').length;
+            const countConfirmed = allOrdersList.filter(o => o?.id && ['confirmed', 'assigned'].includes(o.status)).length;
+            const countReady = allOrdersList.filter(o => o?.id && o.status === 'ready').length;
+            const countDelivering = allOrdersList.filter(o => o?.id && ['picked_up', 'delivering'].includes(o.status)).length;
+            const countDelivered = allOrdersList.filter(o => o?.id && o.status === 'delivered').length;
 
             return (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -3298,51 +3315,57 @@ export const AdminPanel = () => {
                     <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-2 -mx-2 px-2 custom-scrollbar no-scrollbar">
                       <button
                         onClick={() => setKitchenStatusFilter('active')}
-                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                           kitchenStatusFilter === 'active' ? 'bg-dark text-white shadow-lg' : 'bg-white text-muted hover:bg-surface border border-surface'
                         }`}
                       >
-                        Todos los Activos
+                        <span>Todos los Activos</span>
+                        {countActive > 0 && <span className="px-1.5 py-0.5 rounded-full text-xs bg-white/20 text-current font-extrabold">{countActive}</span>}
                       </button>
                       <button
                         onClick={() => setKitchenStatusFilter('pending')}
-                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                           kitchenStatusFilter === 'pending' ? 'bg-yellow-400 text-dark shadow-lg shadow-yellow-200' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border border-yellow-200'
                         }`}
                       >
-                        Nuevos Pedidos
+                        <span>Nuevos Pedidos</span>
+                        {countPending > 0 && <span className="px-1.5 py-0.5 rounded-full text-xs bg-yellow-900/20 text-current font-extrabold">{countPending}</span>}
                       </button>
                       <button
                         onClick={() => setKitchenStatusFilter('confirmed')}
-                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                           kitchenStatusFilter === 'confirmed' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
                         }`}
                       >
-                        En Cocina
+                        <span>En Cocina</span>
+                        {countConfirmed > 0 && <span className="px-1.5 py-0.5 rounded-full text-xs bg-white/20 text-current font-extrabold">{countConfirmed}</span>}
                       </button>
                       <button
                         onClick={() => setKitchenStatusFilter('ready')}
-                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                           kitchenStatusFilter === 'ready' ? 'bg-purple-600 text-white shadow-lg shadow-purple-200' : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
                         }`}
                       >
-                        Terminados
+                        <span>Terminados</span>
+                        {countReady > 0 && <span className="px-1.5 py-0.5 rounded-full text-xs bg-white/20 text-current font-extrabold">{countReady}</span>}
                       </button>
                       <button
                         onClick={() => setKitchenStatusFilter('delivering')}
-                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                           kitchenStatusFilter === 'delivering' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200'
                         }`}
                       >
-                        Entregado a Conductor
+                        <span>Entregado a Conductor</span>
+                        {countDelivering > 0 && <span className="px-1.5 py-0.5 rounded-full text-xs bg-white/20 text-current font-extrabold">{countDelivering}</span>}
                       </button>
                       <button
                         onClick={() => setKitchenStatusFilter('delivered')}
-                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                           kitchenStatusFilter === 'delivered' ? 'bg-green-600 text-white shadow-lg shadow-green-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
                         }`}
                       >
-                        Recibido
+                        <span>Recibido</span>
+                        {countDelivered > 0 && <span className="px-1.5 py-0.5 rounded-full text-xs bg-white/20 text-current font-extrabold">{countDelivered}</span>}
                       </button>
                     </div>
                   </div>
@@ -3428,31 +3451,37 @@ export const AdminPanel = () => {
                           {order.status === 'pending' ? (
                             <button 
                               onClick={() => setPrintingOrderConfirm(order)}
-                              className="w-full bg-blue-600 text-white py-3 rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all flex items-center justify-center space-x-2"
+                              className="w-full bg-blue-600 text-white py-3 rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all flex items-center justify-center space-x-2 shadow-md shadow-blue-200"
                             >
                               <CheckCircle size={18} />
                               <span>Aceptar y Empezar</span>
                             </button>
-                          ) : order.status === 'confirmed' ? (
-                            <button 
-                              onClick={() => updateOrderStatus(order.id, 'ready')}
-                              className="w-full bg-purple-600 text-white py-3 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all flex items-center justify-center space-x-2"
-                            >
-                              <Truck size={18} />
-                              <span>✨ Listo — Notificar Conductores</span>
-                            </button>
+                          ) : ['confirmed', 'assigned'].includes(order.status) ? (
+                            <div className="space-y-1.5">
+                              {order.status === 'assigned' && (
+                                <div className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-xl text-center flex items-center justify-center gap-1.5">
+                                  <Truck size={14} className="text-indigo-600" />
+                                  <span>Conductor asignado en camino al local</span>
+                                </div>
+                              )}
+                              <button 
+                                onClick={() => updateOrderStatus(order.id, 'ready')}
+                                className="w-full bg-purple-600 text-white py-3 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all flex items-center justify-center space-x-2 shadow-md shadow-purple-200"
+                              >
+                                <CheckCircle size={18} />
+                                <span>✨ Marcar como Terminado</span>
+                              </button>
+                            </div>
                           ) : order.status === 'ready' ? (
-                            <div className="flex items-center justify-center space-x-2 bg-purple-50 text-purple-700 py-3 rounded-2xl text-sm font-bold">
-                              <Clock size={16} />
-                              <span>Esperando conductor...</span>
-                            </div>
-                          ) : order.status === 'assigned' ? (
-                            <div className="flex items-center justify-center space-x-2 bg-indigo-50 text-indigo-700 py-3 rounded-2xl text-sm font-bold">
-                              <Truck size={16} />
-                              <span>Conductor en camino al local</span>
-                            </div>
+                            <button 
+                              onClick={() => updateOrderStatus(order.id, 'picked_up')}
+                              className="w-full bg-orange-500 text-white py-3 rounded-2xl font-bold text-sm hover:bg-orange-600 transition-all flex items-center justify-center space-x-2 shadow-md shadow-orange-200"
+                            >
+                              <Send size={18} />
+                              <span>Entregar a Conductor</span>
+                            </button>
                           ) : (
-                            <div className="flex items-center justify-center space-x-2 bg-green-50 text-green-700 py-3 rounded-2xl text-sm font-bold">
+                            <div className="flex items-center justify-center space-x-2 bg-green-50 text-green-700 py-3 rounded-2xl text-sm font-bold border border-green-100">
                               <CheckCircle size={16} />
                               <span>{getStatusInfo(order.status).label}</span>
                             </div>
