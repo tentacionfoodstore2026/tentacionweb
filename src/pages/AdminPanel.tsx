@@ -3404,7 +3404,7 @@ export const AdminPanel = () => {
                                   <span className="bg-primary/20 text-primary w-5 h-5 rounded flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{item.quantity}</span>
                                   <div className="flex-1">
                                     <span className="font-semibold text-dark text-xs leading-tight">
-                                      {item.products?.category ? `${item.products.category} - ` : ''}{item.products?.name}
+                                      {(item.category_name || item.products?.category) ? `${item.category_name || item.products?.category} - ` : ''}{item.products?.name}
                                     </span>
                                     
                                     {item.selected_size && (
@@ -3567,7 +3567,7 @@ export const AdminPanel = () => {
                                     <span className="bg-primary text-dark w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shadow-sm shrink-0">{item.quantity}</span>
                                     <div>
                                       <span className="font-bold text-dark text-base">
-                                        {item.products?.category ? `${item.products.category} - ` : ''}{item.products?.name || 'Producto'}
+                                        {(item.category_name || item.products?.category) ? `${item.category_name || item.products?.category} - ` : ''}{item.products?.name || 'Producto'}
                                       </span>
                                       {item.selected_size && (
                                         <span className="ml-2 px-2 py-0.5 bg-dark text-white rounded-md text-[10px] font-bold uppercase tracking-wider align-middle">
@@ -5901,7 +5901,7 @@ export const AdminPanel = () => {
             {orderToPrint.order_items?.map((item: any) => (
               <div key={item.id} style={{ marginBottom: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                  <span>{item.quantity} x {item.products?.category ? `${item.products.category} - ` : ''}{item.products?.name}</span>
+                  <span>{item.quantity} x {(item.category_name || item.products?.category) ? `${item.category_name || item.products?.category} - ` : ''}{item.products?.name}</span>
                 </div>
                 
                 {item.selected_size && (
