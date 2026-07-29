@@ -290,7 +290,8 @@ export const Checkout = () => {
           selected_modifiers: modifiers,
           selected_size: item.selectedSize ? item.selectedSize.name : null,
           selected_extras: extras,
-          notes: item.notes || null
+          notes: item.notes || null,
+          category_name: item.category || null
         };
       });
 
