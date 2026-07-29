@@ -1540,7 +1540,7 @@ export const AdminPanel = () => {
       // Fetch Orders — use left join to get profile & business info
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name, category)), promotions(code)')
+        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name, category, description)), promotions(code)')
         .order('created_at', { ascending: false });
       if (orderError) console.error('[AdminPanel] Error fetching orders:', orderError);
       if (orderData) {
@@ -1577,7 +1577,7 @@ export const AdminPanel = () => {
     const reloadOrders = () => {
       supabase
         .from('orders')
-        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name, category)), promotions(code)')
+        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name, category, description)), promotions(code)')
         .order('created_at', { ascending: false })
         .then(({ data }) => { if (data) setOrders(data); });
     };
@@ -3520,7 +3520,7 @@ export const AdminPanel = () => {
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-white/20"
+                        className="bg-white w-full max-w-2xl rounded-[8px] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-white/20"
                       >
                         {/* Header */}
                         <div className="p-6 border-b border-surface flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent shrink-0">
@@ -3566,11 +3566,16 @@ export const AdminPanel = () => {
                                   <div className="flex items-center space-x-3 mb-3">
                                     <span className="bg-primary text-dark w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shadow-sm shrink-0">{item.quantity}</span>
                                     <div>
-                                      <span className="font-bold text-dark text-base">
+                                      <span className="font-bold text-dark text-base block">
                                         {(item.category_name || item.products?.category) ? `${item.category_name || item.products?.category} - ` : ''}{item.products?.name || 'Producto'}
                                       </span>
+                                      {item.products?.description && (
+                                        <p className="text-[11px] text-muted italic mt-0.5 leading-normal max-w-md">
+                                          Ingredientes: {item.products.description}
+                                        </p>
+                                      )}
                                       {item.selected_size && (
-                                        <span className="ml-2 px-2 py-0.5 bg-dark text-white rounded-md text-[10px] font-bold uppercase tracking-wider align-middle">
+                                        <span className="inline-block mt-1 px-2 py-0.5 bg-dark text-white rounded-md text-[10px] font-bold uppercase tracking-wider align-middle">
                                           {item.selected_size}
                                         </span>
                                       )}
@@ -3603,26 +3608,32 @@ export const AdminPanel = () => {
                                   )}
 
                                   {/* Legacy extras (non-modifier extras) */}
-                                  {extras.length > 0 && (
-                                    <div className="ml-12 mt-1.5 flex items-start gap-2">
-                                      <span className="text-[10px] font-bold text-muted uppercase tracking-tight pt-0.5 shrink-0 min-w-[80px]">Extras:</span>
-                                      <div className="flex flex-wrap gap-1">
-                                        {extras.map((e: any, i: number) => {
-                                          // Avoid showing extras that duplicate modifier entries
-                                          const label = e.optionName || e.name || String(e);
-                                          const alreadyInMods = modsEntries.some(([, opts]) =>
-                                            Array.isArray(opts) && opts.some((o: any) => (o.name || o) === label)
-                                          );
-                                          if (alreadyInMods) return null;
-                                          return (
-                                            <span key={i} className="px-2 py-0.5 bg-accent/15 text-dark rounded-lg text-xs font-semibold">
-                                              {label}
-                                            </span>
-                                          );
-                                        })}
+                                  {(() => {
+                                    const filteredExtras = extras.filter((e: any) => {
+                                      const label = e.optionName || e.name || String(e);
+                                      return !modsEntries.some(([, opts]) =>
+                                        Array.isArray(opts) && opts.some((o: any) => (o.name || o) === label)
+                                      );
+                                    });
+
+                                    if (filteredExtras.length === 0) return null;
+
+                                    return (
+                                      <div className="ml-12 mt-1.5 flex items-start gap-2">
+                                        <span className="text-[10px] font-bold text-muted uppercase tracking-tight pt-0.5 shrink-0 min-w-[80px]">Extras:</span>
+                                        <div className="flex flex-wrap gap-1">
+                                          {filteredExtras.map((e: any, i: number) => {
+                                            const label = e.optionName || e.name || String(e);
+                                            return (
+                                              <span key={i} className="px-2 py-0.5 bg-accent/15 text-dark rounded-lg text-xs font-semibold">
+                                                {label}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    );
+                                  })()}
 
                                   {/* Special instructions / notes */}
                                   {item.notes && (
@@ -3646,6 +3657,14 @@ export const AdminPanel = () => {
                               <h4 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Datos del Cliente</h4>
                               <p className="font-bold text-dark text-sm">{selectedOrderForDetails.customer_name || selectedOrderForDetails.profiles?.name || 'Cliente'}</p>
                               <p className="text-xs text-muted">{selectedOrderForDetails.customer_phone}</p>
+                              {selectedOrderForDetails.delivery_address && (
+                                <p className="text-xs text-dark/80 mt-1.5 font-medium border-t border-dark/5 pt-1.5">
+                                  📍 {selectedOrderForDetails.delivery_address}
+                                  {selectedOrderForDetails.delivery_reference && (
+                                    <span className="block text-[10px] text-muted italic mt-0.5">Ref: {selectedOrderForDetails.delivery_reference}</span>
+                                  )}
+                                </p>
+                              )}
                             </div>
                             <div className="bg-surface/30 p-4 rounded-2xl border border-surface">
                               <h4 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Método de Pago</h4>
