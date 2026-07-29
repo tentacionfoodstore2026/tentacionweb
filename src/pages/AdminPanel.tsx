@@ -1540,7 +1540,7 @@ export const AdminPanel = () => {
       // Fetch Orders — use left join to get profile & business info
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name, category, description)), promotions(code)')
+        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name, category, description, product_categories(name))), promotions(code)')
         .order('created_at', { ascending: false });
       if (orderError) console.error('[AdminPanel] Error fetching orders:', orderError);
       if (orderData) {
@@ -1577,7 +1577,7 @@ export const AdminPanel = () => {
     const reloadOrders = () => {
       supabase
         .from('orders')
-        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name, category, description)), promotions(code)')
+        .select('*, profiles!orders_user_id_fkey(name, email), businesses(id, name, address, image), order_items(*, products(name, category, description, product_categories(name))), promotions(code)')
         .order('created_at', { ascending: false })
         .then(({ data }) => { if (data) setOrders(data); });
     };
@@ -3404,7 +3404,7 @@ export const AdminPanel = () => {
                                   <span className="bg-primary/20 text-primary w-5 h-5 rounded flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{item.quantity}</span>
                                   <div className="flex-1">
                                     <span className="font-semibold text-dark text-xs leading-tight">
-                                      {(item.category_name || item.products?.category) ? `${item.category_name || item.products?.category} - ` : ''}{item.products?.name}
+                                      {(item.category_name || item.products?.product_categories?.name || item.products?.category) ? `${item.category_name || item.products?.product_categories?.name || item.products?.category} - ` : ''}{item.products?.name}
                                     </span>
                                     
                                     {item.selected_size && (
@@ -3567,7 +3567,7 @@ export const AdminPanel = () => {
                                     <span className="bg-primary text-dark w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shadow-sm shrink-0">{item.quantity}</span>
                                     <div>
                                       <span className="font-bold text-dark text-base block">
-                                        {(item.category_name || item.products?.category) ? `${item.category_name || item.products?.category} - ` : ''}{item.products?.name || 'Producto'}
+                                        {(item.category_name || item.products?.product_categories?.name || item.products?.category) ? `${item.category_name || item.products?.product_categories?.name || item.products?.category} - ` : ''}{item.products?.name || 'Producto'}
                                       </span>
                                       {item.products?.description && (
                                         <p className="text-[11px] text-muted italic mt-0.5 leading-normal max-w-md">
@@ -5920,7 +5920,7 @@ export const AdminPanel = () => {
             {orderToPrint.order_items?.map((item: any) => (
               <div key={item.id} style={{ marginBottom: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                  <span>{item.quantity} x {(item.category_name || item.products?.category) ? `${item.category_name || item.products?.category} - ` : ''}{item.products?.name}</span>
+                  <span>{item.quantity} x {(item.category_name || item.products?.product_categories?.name || item.products?.category) ? `${item.category_name || item.products?.product_categories?.name || item.products?.category} - ` : ''}{item.products?.name}</span>
                 </div>
                 
                 {item.selected_size && (
@@ -5948,8 +5948,8 @@ export const AdminPanel = () => {
                 )}
 
                 {item.notes && (
-                  <div style={{ fontSize: '10px', marginLeft: '10px', fontStyle: 'italic', color: '#f97316' }}>
-                    Nota: "{item.notes}"
+                  <div style={{ fontSize: '11px', marginLeft: '10px', fontWeight: 'bold', color: '#e04f10' }}>
+                    - INDICACIÓN: {item.notes.toUpperCase()}
                   </div>
                 )}
               </div>
