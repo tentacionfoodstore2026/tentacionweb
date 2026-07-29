@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/useStore';
-import { Package, MapPin, Clock, ChevronRight, Ticket, Settings, User as UserIcon, Tag, Star, Camera, Save, Loader2, Phone, Mail } from 'lucide-react';
+import { Package, MapPin, Clock, ChevronRight, Ticket, Settings, User as UserIcon, Tag, Star, Camera, Save, Loader2, Phone, Mail, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '../lib/supabase';
@@ -9,6 +9,7 @@ export const Profile = () => {
   const { user, setUser } = useAuthStore();
   const [activeTab, setActiveTab] = React.useState('profile');
   const [orders, setOrders] = useState<any[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [loyaltyCard, setLoyaltyCard] = useState<any>(null);
   const [promotions, setPromotions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -574,6 +575,12 @@ export const Profile = () => {
                             <span className="font-medium text-dark">${item.price * item.quantity}</span>
                           </div>
                         ))}
+                        <button
+                          onClick={() => setSelectedOrder(order)}
+                          className="w-full mt-3 bg-primary/10 hover:bg-primary/20 text-accent py-2.5 rounded-xl text-sm font-bold transition-colors border border-primary/20"
+                        >
+                          Ver Detalles Completos
+                        </button>
                       </div>
 
                       <div className="pt-4 border-t border-dark/5 flex justify-between items-center">
@@ -651,6 +658,111 @@ export const Profile = () => {
           )}
         </div>
       </div>
+
+      {/* Order Details Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-surface rounded-3xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] shadow-2xl"
+          >
+            <div className="p-5 border-b border-surface flex items-center justify-between sticky top-0 bg-surface z-10">
+              <div>
+                <h3 className="font-bold text-dark text-lg">Detalles del Pedido</h3>
+                <p className="text-sm text-muted">#{selectedOrder.id.substring(0, 8).toUpperCase()}</p>
+              </div>
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-dark/5 text-muted hover:text-dark transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto custom-scrollbar">
+              <div className="space-y-3">
+                {selectedOrder.order_items?.map((item: any) => {
+                  const mods = item.selected_modifiers;
+                  const modsIsObj = mods && !Array.isArray(mods) && typeof mods === 'object';
+                  const modsEntries: [string, any][] = modsIsObj ? Object.entries(mods) : [];
+                  const extras = Array.isArray(item.selected_extras) ? item.selected_extras : [];
+
+                  return (
+                    <div key={item.id} className="bg-white rounded-2xl p-4 border border-dark/5 shadow-sm">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <span className="bg-primary/20 text-accent w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm shrink-0">
+                          {item.quantity}
+                        </span>
+                        <div>
+                          <span className="font-bold text-dark">
+                            {(item.category_name || item.products?.category) ? `${item.category_name || item.products?.category} - ` : ''}{item.products?.name || 'Producto'}
+                          </span>
+                          {item.selected_size && (
+                            <span className="ml-2 px-2 py-0.5 bg-dark text-white rounded-md text-[10px] font-bold uppercase tracking-wider align-middle">
+                              {item.selected_size}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {modsEntries.length > 0 && (
+                        <div className="ml-11 space-y-1 mt-2">
+                          {modsEntries.map(([groupName, options]) => (
+                            <div key={groupName} className="flex flex-col">
+                              <span className="text-[10px] font-bold text-muted uppercase tracking-tight">{groupName}:</span>
+                              <div className="flex flex-wrap gap-1 mt-0.5">
+                                {Array.isArray(options)
+                                  ? options.map((opt: any, i: number) => {
+                                      const label = typeof opt === 'string' ? opt : opt.name || 'Opción';
+                                      const qty = typeof opt === 'object' && opt.quantity > 1 ? `${opt.quantity}x ` : '';
+                                      return (
+                                        <span key={i} className="px-2 py-0.5 bg-dark/5 text-dark rounded-md text-xs font-medium">
+                                          {qty}{label}
+                                        </span>
+                                      );
+                                    })
+                                  : <span className="text-xs text-dark font-medium">{String(options)}</span>
+                                }
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {extras.length > 0 && (
+                        <div className="ml-11 mt-2 flex flex-col">
+                          <span className="text-[10px] font-bold text-muted uppercase tracking-tight">Extras:</span>
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {extras.map((ext: any, i: number) => (
+                              <span key={i} className="px-2 py-0.5 bg-primary/10 text-accent rounded-md text-xs font-medium">
+                                {ext.optionName}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {item.notes && (
+                        <div className="ml-11 mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-100">
+                          <span className="text-[10px] font-bold text-yellow-800 uppercase block mb-0.5">Notas:</span>
+                          <p className="text-xs text-yellow-900">{item.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-dark/10 flex justify-between items-center">
+                <span className="font-medium text-muted">Total del Pedido</span>
+                <span className="text-xl font-bold text-primary">${selectedOrder.total}</span>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
     </div>
   );
 };
