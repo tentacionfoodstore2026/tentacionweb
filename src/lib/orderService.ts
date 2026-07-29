@@ -202,10 +202,11 @@ export async function fetchNotifications(userId: string, role: string): Promise<
     .limit(50);
 
   if (role === 'repartidor') {
-    // Drivers see their personal notifications AND broadcast to all drivers
-    query = query.or(`recipient_id.eq.${userId},recipient_role.eq.all_drivers`);
+    // Drivers see their personal notifications + driver broadcasts + all-user broadcasts
+    query = query.or(`recipient_id.eq.${userId},recipient_role.eq.all_drivers,recipient_role.eq.all`);
   } else {
-    query = query.eq('recipient_id', userId);
+    // Normal users see their personal notifications + all-user broadcasts
+    query = query.or(`recipient_id.eq.${userId},recipient_role.eq.all`);
   }
 
   const { data, error } = await query;
@@ -280,10 +281,12 @@ export function subscribeToOrders(
  */
 export function subscribeToNotifications(
   userId: string,
+  role: string,
   onNew: (notification: OrderNotification) => void
 ) {
   const channel = supabase
     .channel(`notifications-${userId}`)
+    // Personal notifications
     .on(
       'postgres_changes',
       {
@@ -292,12 +295,35 @@ export function subscribeToNotifications(
         table: 'order_notifications',
         filter: `recipient_id=eq.${userId}`
       },
-      (payload) => {
-        onNew(payload.new as OrderNotification);
-      }
+      (payload) => { onNew(payload.new as OrderNotification); }
     )
-    .subscribe();
+    // Broadcast for all users
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'order_notifications',
+        filter: `recipient_role=eq.all`
+      },
+      (payload) => { onNew(payload.new as OrderNotification); }
+    );
 
+  // Drivers also listen for driver-specific broadcasts
+  if (role === 'repartidor') {
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'order_notifications',
+        filter: `recipient_role=eq.all_drivers`
+      },
+      (payload) => { onNew(payload.new as OrderNotification); }
+    );
+  }
+
+  channel.subscribe();
   return channel;
 }
 

@@ -1597,15 +1597,50 @@ export const AdminPanel = () => {
       alert('⚠️ Por favor completa el título y el mensaje.');
       return;
     }
+    if (notificationForm.target === 'specific' && !notificationForm.userId) {
+      alert('⚠️ Selecciona un usuario destinatario.');
+      return;
+    }
 
     try {
       setIsSaving(true);
-      // Aquí iría la lógica de envío real (OneSignal, FCM, etc.)
-      if ((import.meta as any).env.DEV) console.log('Enviando notificación:', notificationForm);
-      
-      // Simulación de delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
+      const base = {
+        order_id: null,
+        type: 'push',
+        title: notificationForm.title,
+        message: notificationForm.message,
+        read: false,
+      };
+
+      if (notificationForm.target === 'all') {
+        // Broadcast to ALL users
+        const { error } = await supabase.from('order_notifications').insert({
+          ...base,
+          recipient_id: null,
+          recipient_role: 'all',
+        });
+        if (error) throw error;
+
+      } else if (notificationForm.target === 'drivers') {
+        // Broadcast to all drivers
+        const { error } = await supabase.from('order_notifications').insert({
+          ...base,
+          recipient_id: null,
+          recipient_role: 'all_drivers',
+        });
+        if (error) throw error;
+
+      } else if (notificationForm.target === 'specific' && notificationForm.userId) {
+        // Single user
+        const { error } = await supabase.from('order_notifications').insert({
+          ...base,
+          recipient_id: notificationForm.userId,
+          recipient_role: 'user',
+        });
+        if (error) throw error;
+      }
+
       alert('✅ Notificación enviada correctamente.');
       setNotificationForm({
         target: 'all',
@@ -1615,9 +1650,9 @@ export const AdminPanel = () => {
         image: '',
         link: ''
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error enviando notificación:', error);
-      alert('❌ Error al enviar la notificación.');
+      alert('❌ Error al enviar la notificación: ' + (error.message || ''));
     } finally {
       setIsSaving(false);
     }

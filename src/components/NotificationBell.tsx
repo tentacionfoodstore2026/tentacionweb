@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Bell, X, CheckCheck, Package, Truck, CheckCircle2, MapPin } from 'lucide-react';
+import { Bell, X, CheckCheck, Package, Truck, CheckCircle2, MapPin, Megaphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuthStore } from '../store/useStore';
 import {
@@ -16,6 +16,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   picked_up:                <Truck size={16} className="text-orange-500" />,
   delivered:                <CheckCircle2 size={16} className="text-green-600" />,
   order_ready_for_pickup:   <Package size={16} className="text-amber-600" />,
+  push:                     <Megaphone size={16} className="text-primary" />,
 };
 
 const BG_MAP: Record<string, string> = {
@@ -24,6 +25,7 @@ const BG_MAP: Record<string, string> = {
   picked_up:                'bg-orange-100',
   delivered:                'bg-green-100',
   order_ready_for_pickup:   'bg-amber-100',
+  push:                     'bg-primary/20',
 };
 
 export const NotificationBell: React.FC = () => {
@@ -34,13 +36,47 @@ export const NotificationBell: React.FC = () => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // Play sound on new notification
+  const playBeep = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    } catch {}
+  };
+
+  // Show browser native notification
+  const showBrowserNotif = (notif: OrderNotification) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(notif.title, {
+        body: notif.message,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+      });
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
 
+    // Request browser notification permission on load
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     fetchNotifications(user.id, user.role).then(setNotifications);
 
-    const channel = subscribeToNotifications(user.id, (notif) => {
+    const channel = subscribeToNotifications(user.id, user.role, (notif) => {
       setNotifications(prev => [notif, ...prev]);
+      playBeep();
+      showBrowserNotif(notif);
       // Vibrate on mobile if supported
       if ('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
     });
