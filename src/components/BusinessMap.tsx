@@ -60,12 +60,37 @@ export const BusinessMap: React.FC<BusinessMapProps> = ({ businesses }) => {
 
     const validBiz = businesses.filter(b => b.latitude && b.longitude);
     
+    // Disperse overlapping markers slightly so they are visible side-by-side
+    const coordsMap: Record<string, number> = {};
+    const dispersedBiz = validBiz.map((biz) => {
+      const key = `${biz.latitude.toFixed(5)}_${biz.longitude.toFixed(5)}`;
+      const count = coordsMap[key] || 0;
+      coordsMap[key] = count + 1;
+      
+      let lat = biz.latitude;
+      let lng = biz.longitude;
+      
+      if (count > 0) {
+        // Disperse in a circle
+        const angle = (count * 2 * Math.PI) / 8; // Max 8 directions
+        const radius = 0.00012; // Approx 12-15 meters displacement
+        lat += radius * Math.sin(angle);
+        lng += radius * Math.cos(angle);
+      }
+      
+      return {
+        ...biz,
+        displayLat: lat,
+        displayLng: lng
+      };
+    });
+    
     // Average center
     const centerLngLat: [number, number] =
-      validBiz.length > 0
+      dispersedBiz.length > 0
         ? [
-            validBiz.reduce((a, b) => a + b.longitude, 0) / validBiz.length,
-            validBiz.reduce((a, b) => a + b.latitude, 0) / validBiz.length,
+            dispersedBiz.reduce((a, b) => a + b.displayLng, 0) / dispersedBiz.length,
+            dispersedBiz.reduce((a, b) => a + b.displayLat, 0) / dispersedBiz.length,
           ]
         : [-70.3126, -18.4783]; // Arica, Chile fallback
 
@@ -80,7 +105,7 @@ export const BusinessMap: React.FC<BusinessMapProps> = ({ businesses }) => {
 
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    validBiz.forEach(biz => {
+    dispersedBiz.forEach(biz => {
       // Create custom HTML element for marker
       const el = document.createElement('div');
       el.style.width = '48px';
@@ -143,10 +168,13 @@ export const BusinessMap: React.FC<BusinessMapProps> = ({ businesses }) => {
         </div>
       `;
 
-      const popup = new mapboxgl.Popup({ offset: 20 }).setHTML(popupHtml);
+      const popup = new mapboxgl.Popup({ offset: [0, -52] }).setHTML(popupHtml);
 
-      new mapboxgl.Marker(el)
-        .setLngLat([biz.longitude, biz.latitude])
+      new mapboxgl.Marker({
+        element: el,
+        anchor: 'bottom'
+      })
+        .setLngLat([biz.displayLng, biz.displayLat])
         .setPopup(popup)
         .addTo(map);
     });
