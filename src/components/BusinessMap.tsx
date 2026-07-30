@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import L from 'leaflet';
+import { Loader2 } from 'lucide-react';
 
 export interface MapBusiness {
   id: string;
@@ -17,68 +17,108 @@ interface BusinessMapProps {
 
 export const BusinessMap: React.FC<BusinessMapProps> = ({ businesses }) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  const leafletMap = useRef<L.Map | null>(null);
+  const mapInstance = useRef<any>(null);
   const navigate = useNavigate();
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+
+  const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+  const MAPBOX_STYLE = 'mapbox://styles/tentacionfoodtore/cms72tj9w007o01qohkangdd4';
 
   useEffect(() => {
-    if (!mapRef.current || leafletMap.current) return;
+    if ((window as any).mapboxgl) {
+      setIsLoaded(true);
+      return;
+    }
 
-    // Default center: use average of all business coords, or Chile fallback
+    // Add Mapbox CSS
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css';
+    link.id = 'mapbox-css';
+    document.head.appendChild(link);
+
+    // Add Mapbox JS
+    const script = document.createElement('script');
+    script.src = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js';
+    script.async = true;
+    script.id = 'mapbox-js';
+    script.onload = () => {
+      setIsLoaded(true);
+    };
+    script.onerror = () => {
+      setMapError('No se pudo cargar Mapbox. Por favor, revisa tu conexión.');
+    };
+    document.head.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || mapInstance.current) return;
+
+    const mapboxgl = (window as any).mapboxgl;
+    mapboxgl.accessToken = MAPBOX_TOKEN;
+
     const validBiz = businesses.filter(b => b.latitude && b.longitude);
-    const center: [number, number] =
+    
+    // Average center
+    const centerLngLat: [number, number] =
       validBiz.length > 0
         ? [
-            validBiz.reduce((a, b) => a + b.latitude, 0) / validBiz.length,
             validBiz.reduce((a, b) => a + b.longitude, 0) / validBiz.length,
+            validBiz.reduce((a, b) => a + b.latitude, 0) / validBiz.length,
           ]
-        : [-18.4783, -70.3126]; // Arica, Chile fallback
+        : [-70.3126, -18.4783]; // Arica, Chile fallback
 
-    const map = L.map(mapRef.current, {
-      center,
-      zoom: 14,
-      zoomControl: true,
-      scrollWheelZoom: true,
+    const map = new mapboxgl.Map({
+      container: mapRef.current,
+      style: MAPBOX_STYLE,
+      center: centerLngLat,
+      zoom: 13,
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(map);
+    mapInstance.current = map;
+
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     validBiz.forEach(biz => {
-      // Create a custom divIcon with the business logo
-      const icon = L.divIcon({
-        className: '',
-        iconSize: [48, 48],
-        iconAnchor: [24, 48],
-        popupAnchor: [0, -50],
-        html: `
-          <div style="
-            width:48px;height:48px;border-radius:50%;
-            border:3px solid #FFC31F;
-            box-shadow:0 4px 16px rgba(0,0,0,0.25);
-            overflow:hidden;background:#fff;cursor:pointer;
-            transition:transform 0.15s;
-          " onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
-            <img src="${biz.image}" alt="${biz.name}"
-              style="width:100%;height:100%;object-fit:cover;"
-              onerror="this.src='https://juksmchvbblljkhixcda.supabase.co/storage/v1/object/public/images/uploads/default.png'"
-            />
-          </div>
-          <div style="
-            position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);
-            width:0;height:0;
-            border-left:8px solid transparent;
-            border-right:8px solid transparent;
-            border-top:10px solid #FFC31F;
-          "></div>
-        `,
-      });
+      // Create custom HTML element for marker
+      const el = document.createElement('div');
+      el.style.position = 'relative';
+      el.style.width = '48px';
+      el.style.height = '48px';
+      el.style.borderRadius = '50%';
+      el.style.border = '3px solid #FFC31F';
+      el.style.boxShadow = '0 4px 16px rgba(0,0,0,0.25)';
+      el.style.background = '#fff';
+      el.style.cursor = 'pointer';
+      el.style.transition = 'transform 0.15s';
+      el.onmouseover = () => { el.style.transform = 'scale(1.15)'; };
+      el.onmouseout = () => { el.style.transform = 'scale(1)'; };
 
-      const marker = L.marker([biz.latitude, biz.longitude], { icon }).addTo(map);
+      const img = document.createElement('img');
+      img.src = biz.image;
+      img.alt = biz.name;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.borderRadius = '50%';
+      img.style.objectFit = 'cover';
+      img.onerror = () => { img.src = 'https://juksmchvbblljkhixcda.supabase.co/storage/v1/object/public/images/uploads/default.png'; };
+      el.appendChild(img);
 
-      marker.bindPopup(`
-        <div style="min-width:140px;text-align:center;font-family:Inter,sans-serif;">
+      const arrow = document.createElement('div');
+      arrow.style.position = 'absolute';
+      arrow.style.bottom = '-11px';
+      arrow.style.left = '50%';
+      arrow.style.transform = 'translateX(-50%)';
+      arrow.style.width = '0';
+      arrow.style.height = '0';
+      arrow.style.borderLeft = '8px solid transparent';
+      arrow.style.borderRight = '8px solid transparent';
+      arrow.style.borderTop = '10px solid #FFC31F';
+      el.appendChild(arrow);
+
+      const popupHtml = `
+        <div style="min-width:140px;text-align:center;font-family:Inter,sans-serif;padding: 5px 0;">
           <img src="${biz.image}" alt="${biz.name}"
             style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 8px;display:block;border:2px solid #FFC31F;"
             onerror="this.src=''"
@@ -95,18 +135,22 @@ export const BusinessMap: React.FC<BusinessMapProps> = ({ businesses }) => {
             "
           >Ver comercio →</button>
         </div>
-      `, { maxWidth: 200 });
-    });
+      `;
 
-    leafletMap.current = map;
+      const popup = new mapboxgl.Popup({ offset: 20 }).setHTML(popupHtml);
+
+      new mapboxgl.Marker(el)
+        .setLngLat([biz.longitude, biz.latitude])
+        .setPopup(popup)
+        .addTo(map);
+    });
 
     return () => {
       map.remove();
-      leafletMap.current = null;
+      mapInstance.current = null;
     };
-  }, [businesses]);
+  }, [isLoaded, businesses]);
 
-  // Listen for the custom navigation event from popup buttons
   useEffect(() => {
     const handler = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
@@ -128,11 +172,26 @@ export const BusinessMap: React.FC<BusinessMapProps> = ({ businesses }) => {
     );
   }
 
+  if (mapError) {
+    return (
+      <div className="w-full p-4 text-sm text-red-600 bg-red-50 rounded-2xl border border-red-100">
+        {mapError}
+      </div>
+    );
+  }
+
   return (
-    <div
-      ref={mapRef}
-      className="w-full rounded-2xl overflow-hidden shadow-lg border border-surface"
-      style={{ height: '400px', zIndex: 1 }}
-    />
+    <div className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-surface" style={{ height: '400px' }}>
+      {!isLoaded && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface/80 z-20 space-y-2">
+          <Loader2 className="text-primary animate-spin" size={28} />
+          <span className="text-xs text-muted font-medium">Cargando mapa interactivo...</span>
+        </div>
+      )}
+      <div
+        ref={mapRef}
+        className="w-full h-full z-10"
+      />
+    </div>
   );
 };

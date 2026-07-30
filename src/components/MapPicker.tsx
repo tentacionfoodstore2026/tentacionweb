@@ -12,7 +12,7 @@ interface MapPickerProps {
 
 export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, latitude, longitude, onChangeLocation }) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  const leafletInstance = useRef<any>(null);
+  const mapInstance = useRef<any>(null);
   const markerInstance = useRef<any>(null);
   const { portalSettings } = useAuthStore();
   
@@ -20,77 +20,64 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, 
   const [loadingGeocode, setLoadingGeocode] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
-  // Load Leaflet CSS and JS dynamically from CDN to avoid bundling/path issues with Vite
+  const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+  const MAPBOX_STYLE = 'mapbox://styles/tentacionfoodtore/cms72tj9w007o01qohkangdd4';
+
   useEffect(() => {
-    if ((window as any).L) {
+    if ((window as any).mapboxgl) {
       setIsLoaded(true);
       return;
     }
 
-    // Add Leaflet CSS
+    // Add Mapbox CSS
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    link.id = 'leaflet-css';
+    link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css';
+    link.id = 'mapbox-css';
     document.head.appendChild(link);
 
-    // Add Leaflet JS
+    // Add Mapbox JS
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.src = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js';
     script.async = true;
-    script.id = 'leaflet-js';
+    script.id = 'mapbox-js';
     script.onload = () => {
       setIsLoaded(true);
     };
     script.onerror = () => {
-      setMapError('No se pudo cargar el mapa. Por favor, revisa tu conexión.');
+      setMapError('No se pudo cargar Mapbox. Por favor, revisa tu conexión.');
     };
     document.head.appendChild(script);
-
-    return () => {
-      // We keep scripts loaded on head for subsequent mounts, which is faster and cleaner
-    };
   }, []);
 
-  // Initialize Map
   useEffect(() => {
-    if (!isLoaded || !mapRef.current || leafletInstance.current) return;
+    if (!isLoaded || !mapRef.current || mapInstance.current) return;
 
-    const L = (window as any).L;
+    const mapboxgl = (window as any).mapboxgl;
+    mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    // Standard fix for Leaflet default icon paths in bundlers like Vite
-    const DefaultIcon = L.icon({
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    });
-    L.Marker.prototype.options.icon = DefaultIcon;
-
-    // Default coordinates: Arica, Chile (-18.4783, -70.3126)
     const defaultLat = latitude || -18.4783;
     const defaultLng = longitude || -70.3126;
 
-    const map = L.map(mapRef.current, {
-      zoomControl: true,
-      scrollWheelZoom: true
-    }).setView([defaultLat, defaultLng], latitude ? 16 : 13);
+    const map = new mapboxgl.Map({
+      container: mapRef.current,
+      style: MAPBOX_STYLE,
+      center: [defaultLng, defaultLat], // Mapbox uses [lng, lat]
+      zoom: latitude ? 15 : 12,
+    });
     
-    leafletInstance.current = map;
+    mapInstance.current = map;
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(map);
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    const marker = L.marker([defaultLat, defaultLng], {
-      draggable: true
-    }).addTo(map);
+    const marker = new mapboxgl.Marker({
+      draggable: true,
+    })
+      .setLngLat([defaultLng, defaultLat])
+      .addTo(map);
+
     markerInstance.current = marker;
 
-    // Reverse Geocoding helper
     const reverseGeocode = async (lat: number, lng: number) => {
       try {
         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
@@ -100,9 +87,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, 
         });
         const data = await response.json();
         if (data && data.display_name) {
-          // Format address to be cleaner (e.g. removing very long details at the end)
           const parts = data.display_name.split(',');
-          // Take first 4 components of address for a cleaner input value
           const cleanAddress = parts.slice(0, 4).map((p: string) => p.trim()).join(', ');
           onChangeAddress(cleanAddress);
         }
@@ -111,29 +96,23 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, 
       }
     };
 
-    // Handle marker dragend
     marker.on('dragend', async () => {
-      const position = marker.getLatLng();
-      map.panTo(position);
-      if (onChangeLocation) onChangeLocation(position.lat, position.lng);
-      await reverseGeocode(position.lat, position.lng);
+      const lngLat = marker.getLngLat();
+      map.panTo([lngLat.lng, lngLat.lat]);
+      if (onChangeLocation) onChangeLocation(lngLat.lat, lngLat.lng);
+      await reverseGeocode(lngLat.lat, lngLat.lng);
     });
 
-    // Handle map click to place marker
     map.on('click', async (e: any) => {
-      const { lat, lng } = e.latlng;
-      marker.setLatLng([lat, lng]);
-      map.panTo([lat, lng]);
+      const { lng, lat } = e.lngLat;
+      marker.setLngLat([lng, lat]);
+      map.panTo([lng, lat]);
       if (onChangeLocation) onChangeLocation(lat, lng);
       await reverseGeocode(lat, lng);
     });
 
-    // Initial positioning based on address or portal setting
     const locateInitialPosition = async () => {
-      if (latitude && longitude) {
-        return; // Already initialized with coords
-      }
-      
+      if (latitude && longitude) return;
       const initialSearchText = address || portalSettings?.address || 'Arica, Chile';
       try {
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(initialSearchText)}&limit=1`, {
@@ -144,9 +123,9 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, 
         const data = await response.json();
         if (data && data.length > 0) {
           const { lat, lon } = data[0];
-          const newCoords = [parseFloat(lat), parseFloat(lon)];
-          marker.setLatLng(newCoords);
-          map.setView(newCoords, address ? 16 : 13);
+          const newCoords: [number, number] = [parseFloat(lon), parseFloat(lat)];
+          marker.setLngLat(newCoords);
+          map.setView({ center: newCoords, zoom: address ? 15 : 12 });
           if (onChangeLocation) onChangeLocation(parseFloat(lat), parseFloat(lon));
         }
       } catch (err) {
@@ -155,25 +134,28 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, 
     };
 
     locateInitialPosition();
+
+    return () => {
+      map.remove();
+      mapInstance.current = null;
+      markerInstance.current = null;
+    };
   }, [isLoaded]);
 
-  // Update marker position and center map if latitude/longitude change from outside (e.g. typed manually)
   useEffect(() => {
-    if (!leafletInstance.current || !markerInstance.current || latitude === undefined || longitude === undefined) return;
-
-    const currentLatLng = markerInstance.current.getLatLng();
-    const diffLat = Math.abs(currentLatLng.lat - latitude);
-    const diffLng = Math.abs(currentLatLng.lng - longitude);
+    if (!mapInstance.current || !markerInstance.current || latitude === undefined || longitude === undefined) return;
+    const currentLngLat = markerInstance.current.getLngLat();
+    const diffLat = Math.abs(currentLngLat.lat - latitude);
+    const diffLng = Math.abs(currentLngLat.lng - longitude);
 
     if (diffLat > 0.0001 || diffLng > 0.0001) {
-      markerInstance.current.setLatLng([latitude, longitude]);
-      leafletInstance.current.setView([latitude, longitude], 16);
+      markerInstance.current.setLngLat([longitude, latitude]);
+      mapInstance.current.panTo([longitude, latitude]);
     }
   }, [latitude, longitude]);
 
-  // Geocodes the text input address and centers the map/marker on it
   const handleLocateAddress = async () => {
-    if (!leafletInstance.current || !markerInstance.current || !address) return;
+    if (!mapInstance.current || !markerInstance.current || !address) return;
     setLoadingGeocode(true);
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`, {
@@ -184,9 +166,9 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, 
       const data = await response.json();
       if (data && data.length > 0) {
         const { lat, lon } = data[0];
-        const newCoords = [parseFloat(lat), parseFloat(lon)];
-        markerInstance.current.setLatLng(newCoords);
-        leafletInstance.current.setView(newCoords, 16);
+        const newCoords: [number, number] = [parseFloat(lon), parseFloat(lat)];
+        markerInstance.current.setLngLat(newCoords);
+        mapInstance.current.setView({ center: newCoords, zoom: 15 });
         if (onChangeLocation) onChangeLocation(parseFloat(lat), parseFloat(lon));
       } else {
         alert('No se pudo encontrar la dirección especificada en el mapa. Intenta con una dirección más simple o arrastra el pin.');
