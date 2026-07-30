@@ -125,7 +125,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, 
           const { lat, lon } = data[0];
           const newCoords: [number, number] = [parseFloat(lon), parseFloat(lat)];
           marker.setLngLat(newCoords);
-          map.setView({ center: newCoords, zoom: address ? 15 : 12 });
+          map.flyTo({ center: newCoords, zoom: address ? 15 : 12 });
           if (onChangeLocation) onChangeLocation(parseFloat(lat), parseFloat(lon));
         }
       } catch (err) {
@@ -168,7 +168,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, 
         const { lat, lon } = data[0];
         const newCoords: [number, number] = [parseFloat(lon), parseFloat(lat)];
         markerInstance.current.setLngLat(newCoords);
-        mapInstance.current.setView({ center: newCoords, zoom: 15 });
+        mapInstance.current.flyTo({ center: newCoords, zoom: 15 });
         if (onChangeLocation) onChangeLocation(parseFloat(lat), parseFloat(lon));
       } else {
         alert('No se pudo encontrar la dirección especificada en el mapa. Intenta con una dirección más simple o arrastra el pin.');

@@ -1,11 +1,177 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Star, Clock, Truck, MapPin, ChevronLeft, ChevronRight, Info, Phone, Instagram, Facebook, Map as MapIcon, Music, Search, X } from 'lucide-react';
+import { Star, Clock, Truck, MapPin, ChevronLeft, ChevronRight, Info, Phone, Instagram, Facebook, Map as MapIcon, Music, Search, X, Loader2 } from 'lucide-react';
 import { ProductCard } from '../components/ProductCard';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import { Business, Product, ProductCategory, useAuthStore } from '../store/useStore';
 import { isBusinessCurrentlyOpen } from '../lib/businessHours';
+
+// ─── BusinessDetailMap ────────────────────────────────────────────────────────
+interface BusinessDetailMapProps {
+  latitude?: number | null;
+  longitude?: number | null;
+  address?: string;
+  name: string;
+  image: string;
+}
+
+const BusinessDetailMap: React.FC<BusinessDetailMapProps> = ({ latitude, longitude, address, name, image }) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+
+  const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+  const MAPBOX_STYLE = 'mapbox://styles/mapbox/streets-v12';
+
+  useEffect(() => {
+    if ((window as any).mapboxgl) {
+      setIsLoaded(true);
+      return;
+    }
+
+    if (!document.getElementById('mapbox-css')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css';
+      link.id = 'mapbox-css';
+      document.head.appendChild(link);
+    }
+
+    if (!document.getElementById('mapbox-js')) {
+      const script = document.createElement('script');
+      script.src = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js';
+      script.async = true;
+      script.id = 'mapbox-js';
+      script.onload = () => setIsLoaded(true);
+      script.onerror = () => setMapError('No se pudo cargar el mapa.');
+      document.head.appendChild(script);
+    } else {
+      // Script tag exists but may still be loading
+      const existingScript = document.getElementById('mapbox-js') as HTMLScriptElement;
+      if ((window as any).mapboxgl) {
+        setIsLoaded(true);
+      } else {
+        existingScript.addEventListener('load', () => setIsLoaded(true));
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || mapInstance.current) return;
+
+    const mapboxgl = (window as any).mapboxgl;
+    mapboxgl.accessToken = MAPBOX_TOKEN;
+
+    const initMap = async (lat: number, lng: number) => {
+      if (!mapRef.current) return;
+
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: MAPBOX_STYLE,
+        center: [lng, lat],
+        zoom: 15,
+        interactive: true,
+      });
+
+      mapInstance.current = map;
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      // Create custom marker with business logo
+      const el = document.createElement('div');
+      el.style.width = '52px';
+      el.style.height = '52px';
+
+      const inner = document.createElement('div');
+      inner.style.position = 'relative';
+      inner.style.width = '100%';
+      inner.style.height = '100%';
+      inner.style.borderRadius = '50%';
+      inner.style.border = '3px solid #FFC31F';
+      inner.style.boxShadow = '0 4px 16px rgba(0,0,0,0.3)';
+      inner.style.background = '#fff';
+
+      const img = document.createElement('img');
+      img.src = image;
+      img.alt = name;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.borderRadius = '50%';
+      img.style.objectFit = 'cover';
+      img.onerror = () => { img.src = 'https://juksmchvbblljkhixcda.supabase.co/storage/v1/object/public/images/uploads/default.png'; };
+      inner.appendChild(img);
+
+      const arrow = document.createElement('div');
+      arrow.style.position = 'absolute';
+      arrow.style.bottom = '-11px';
+      arrow.style.left = '50%';
+      arrow.style.transform = 'translateX(-50%)';
+      arrow.style.width = '0';
+      arrow.style.height = '0';
+      arrow.style.borderLeft = '8px solid transparent';
+      arrow.style.borderRight = '8px solid transparent';
+      arrow.style.borderTop = '10px solid #FFC31F';
+      inner.appendChild(arrow);
+      el.appendChild(inner);
+
+      new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([lng, lat])
+        .setPopup(new mapboxgl.Popup({ offset: [0, -56] }).setHTML(
+          `<div style="font-family:Inter,sans-serif;text-align:center;padding:4px 0;">
+            <strong style="font-size:13px;color:#1F1F1F;">${name}</strong>
+            ${address ? `<p style="font-size:11px;color:#4B4847;margin:4px 0 0;">${address}</p>` : ''}
+          </div>`
+        ))
+        .addTo(map);
+    };
+
+    if (latitude && longitude) {
+      initMap(latitude, longitude);
+    } else if (address) {
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`, {
+        headers: { 'Accept-Language': 'es' }
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            initMap(parseFloat(data[0].lat), parseFloat(data[0].lon));
+          } else {
+            setMapError('No se pudo ubicar la dirección en el mapa.');
+          }
+        })
+        .catch(() => setMapError('Error al cargar la ubicación.'));
+    }
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, [isLoaded, latitude, longitude, address]);
+
+  if (mapError) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-sm text-muted">
+        {mapError}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-full">
+      {!isLoaded && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface/80 z-20 space-y-2">
+          <Loader2 className="text-primary animate-spin" size={28} />
+          <span className="text-xs text-muted font-medium">Cargando mapa...</span>
+        </div>
+      )}
+      <div ref={mapRef} className="w-full h-full" />
+    </div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const BusinessDetail = () => {
   const [id] = useState(useParams().id);
@@ -549,18 +715,15 @@ export const BusinessDetail = () => {
             {/* Interactive Map */}
             <div className="bg-surface rounded-2xl p-6 shadow-sm border border-surface">
               <h3 className="text-lg font-medium text-dark mb-4">Ubicación</h3>
-              <div className="aspect-square bg-surface rounded-2xl overflow-hidden border border-surface relative">
-                {business.address ? (
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    frameBorder="0"
-                    scrolling="no"
-                    marginHeight={0}
-                    marginWidth={0}
-                    src={`https://maps.google.com/maps?q=${encodeURIComponent(business.address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
-                    className="absolute inset-0"
-                  ></iframe>
+              <div className="rounded-2xl overflow-hidden border border-surface relative" style={{ height: '280px' }}>
+                {(business.latitude && business.longitude) || business.address ? (
+                  <BusinessDetailMap
+                    latitude={business.latitude}
+                    longitude={business.longitude}
+                    address={business.address}
+                    name={business.name}
+                    image={business.image}
+                  />
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-muted space-y-2 border-2 border-dashed border-surface">
                     <MapIcon size={40} />
