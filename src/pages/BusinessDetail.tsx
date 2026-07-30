@@ -19,8 +19,21 @@ interface BusinessDetailMapProps {
 const BusinessDetailMap: React.FC<BusinessDetailMapProps> = ({ latitude, longitude, address, name, image }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
+  const hasInitialized = useRef(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+
+  // Store props in refs so the map init effect doesn't need them as dependencies
+  const latRef = useRef(latitude);
+  const lngRef = useRef(longitude);
+  const addressRef = useRef(address);
+  const nameRef = useRef(name);
+  const imageRef = useRef(image);
+  useEffect(() => { latRef.current = latitude; }, [latitude]);
+  useEffect(() => { lngRef.current = longitude; }, [longitude]);
+  useEffect(() => { addressRef.current = address; }, [address]);
+  useEffect(() => { nameRef.current = name; }, [name]);
+  useEffect(() => { imageRef.current = image; }, [image]);
 
   const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
   const MAPBOX_STYLE = 'mapbox://styles/mapbox/streets-v12';
@@ -48,7 +61,6 @@ const BusinessDetailMap: React.FC<BusinessDetailMapProps> = ({ latitude, longitu
       script.onerror = () => setMapError('No se pudo cargar el mapa.');
       document.head.appendChild(script);
     } else {
-      // Script tag exists but may still be loading
       const existingScript = document.getElementById('mapbox-js') as HTMLScriptElement;
       if ((window as any).mapboxgl) {
         setIsLoaded(true);
@@ -59,26 +71,14 @@ const BusinessDetailMap: React.FC<BusinessDetailMapProps> = ({ latitude, longitu
   }, []);
 
   useEffect(() => {
-    if (!isLoaded || !mapRef.current || mapInstance.current) return;
+    // Guard: only run once when Mapbox is ready
+    if (!isLoaded || !mapRef.current || hasInitialized.current) return;
+    hasInitialized.current = true;
 
     const mapboxgl = (window as any).mapboxgl;
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    const initMap = async (lat: number, lng: number) => {
-      if (!mapRef.current) return;
-
-      const map = new mapboxgl.Map({
-        container: mapRef.current,
-        style: MAPBOX_STYLE,
-        center: [lng, lat],
-        zoom: 15,
-        interactive: true,
-      });
-
-      mapInstance.current = map;
-      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-      // Create custom marker with business logo
+    const buildMarker = (map: any, lat: number, lng: number) => {
       const el = document.createElement('div');
       el.style.width = '52px';
       el.style.height = '52px';
@@ -93,8 +93,8 @@ const BusinessDetailMap: React.FC<BusinessDetailMapProps> = ({ latitude, longitu
       inner.style.background = '#fff';
 
       const img = document.createElement('img');
-      img.src = image;
-      img.alt = name;
+      img.src = imageRef.current || '';
+      img.alt = nameRef.current || '';
       img.style.width = '100%';
       img.style.height = '100%';
       img.style.borderRadius = '50%';
@@ -119,17 +119,38 @@ const BusinessDetailMap: React.FC<BusinessDetailMapProps> = ({ latitude, longitu
         .setLngLat([lng, lat])
         .setPopup(new mapboxgl.Popup({ offset: [0, -56] }).setHTML(
           `<div style="font-family:Inter,sans-serif;text-align:center;padding:4px 0;">
-            <strong style="font-size:13px;color:#1F1F1F;">${name}</strong>
-            ${address ? `<p style="font-size:11px;color:#4B4847;margin:4px 0 0;">${address}</p>` : ''}
+            <strong style="font-size:13px;color:#1F1F1F;">${nameRef.current}</strong>
+            ${addressRef.current ? `<p style="font-size:11px;color:#4B4847;margin:4px 0 0;">${addressRef.current}</p>` : ''}
           </div>`
         ))
         .addTo(map);
     };
 
-    if (latitude && longitude) {
-      initMap(latitude, longitude);
-    } else if (address) {
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`, {
+    const initMap = (lat: number, lng: number) => {
+      if (!mapRef.current || mapInstance.current) return;
+
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: MAPBOX_STYLE,
+        center: [lng, lat],
+        zoom: 15,
+        interactive: true,
+      });
+
+      mapInstance.current = map;
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      // Wait for style to load before adding marker
+      map.on('load', () => buildMarker(map, lat, lng));
+
+      // Ensure map renders correctly in its container
+      map.on('style.load', () => map.resize());
+    };
+
+    if (latRef.current && lngRef.current) {
+      initMap(latRef.current, lngRef.current);
+    } else if (addressRef.current) {
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressRef.current)}&limit=1`, {
         headers: { 'Accept-Language': 'es' }
       })
         .then(r => r.json())
@@ -147,9 +168,10 @@ const BusinessDetailMap: React.FC<BusinessDetailMapProps> = ({ latitude, longitu
       if (mapInstance.current) {
         mapInstance.current.remove();
         mapInstance.current = null;
+        hasInitialized.current = false;
       }
     };
-  }, [isLoaded, latitude, longitude, address]);
+  }, [isLoaded]); // Only depends on isLoaded — props are in refs
 
   if (mapError) {
     return (
@@ -174,6 +196,7 @@ const BusinessDetailMap: React.FC<BusinessDetailMapProps> = ({ latitude, longitu
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const BusinessDetail = () => {
+
   const [id] = useState(useParams().id);
   const [business, setBusiness] = useState<Business | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
