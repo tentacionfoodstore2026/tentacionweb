@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Business, Coupon, useAuthStore, Role, Driver, useDriverStore, PromotionalBanner } from '../store/useStore';
 import { ImageUpload } from '../components/ImageUpload';
 import { MenuEditor } from '../components/MenuEditor';
+import { MapPicker } from '../components/MapPicker';
 import { supabase } from '../lib/supabase';
 import { uploadImageToStorage } from '../lib/uploadImage';
 
@@ -1761,7 +1762,9 @@ export const AdminPanel = () => {
         opening_hours: currentBusiness.openingHours || [],
         promo_images: currentBusiness.promoImages || [],
         youtube_url: currentBusiness.youtubeUrl || '',
-        tiktok_url: currentBusiness.tiktokUrl || ''
+        tiktok_url: currentBusiness.tiktokUrl || '',
+        latitude: currentBusiness.latitude || null,
+        longitude: currentBusiness.longitude || null
       };
 
       let result;
@@ -4915,8 +4918,40 @@ export const AdminPanel = () => {
                             required
                             value={currentBusiness?.address || ''}
                             onChange={e => setCurrentBusiness({ ...currentBusiness, address: e.target.value })}
-                            className="w-full bg-surface border-2 border-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:border-primary/50 font-medium text-dark" 
+                            className="w-full bg-surface border-2 border-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:border-primary/50 font-medium text-dark mb-4" 
                           />
+                          <MapPicker 
+                            address={currentBusiness?.address || ''}
+                            onChangeAddress={(addr) => setCurrentBusiness({ ...currentBusiness, address: addr })}
+                            latitude={currentBusiness?.latitude}
+                            longitude={currentBusiness?.longitude}
+                            onChangeLocation={(lat, lng) => setCurrentBusiness({ ...currentBusiness, latitude: lat, longitude: lng })}
+                          />
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-4">
+                            <div>
+                              <label className="block text-[10px] font-bold text-muted uppercase mb-2 ml-1">Latitud</label>
+                              <input 
+                                type="number" 
+                                step="any"
+                                placeholder="Ej: -18.4783"
+                                value={currentBusiness?.latitude ?? ''}
+                                onChange={e => setCurrentBusiness({ ...currentBusiness, latitude: parseFloat(e.target.value) || 0 })}
+                                className="w-full bg-surface border-2 border-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:border-primary/50 font-medium text-dark" 
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-muted uppercase mb-2 ml-1">Longitud</label>
+                              <input 
+                                type="number" 
+                                step="any"
+                                placeholder="Ej: -70.3126"
+                                value={currentBusiness?.longitude ?? ''}
+                                onChange={e => setCurrentBusiness({ ...currentBusiness, longitude: parseFloat(e.target.value) || 0 })}
+                                className="w-full bg-surface border-2 border-surface rounded-2xl px-5 py-3.5 focus:outline-none focus:border-primary/50 font-medium text-dark" 
+                              />
+                            </div>
+                          </div>
                         </div>
                         
                         <div className="md:col-span-2 bg-primary/5 p-6 rounded-2xl border border-primary/10 grid grid-cols-2 md:grid-cols-4 gap-6">

@@ -5,9 +5,12 @@ import { MapPin, Search, Loader2 } from 'lucide-react';
 interface MapPickerProps {
   address: string;
   onChangeAddress: (address: string) => void;
+  latitude?: number;
+  longitude?: number;
+  onChangeLocation?: (lat: number, lng: number) => void;
 }
 
-export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress }) => {
+export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, latitude, longitude, onChangeLocation }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
   const markerInstance = useRef<any>(null);
@@ -68,13 +71,13 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress }
     L.Marker.prototype.options.icon = DefaultIcon;
 
     // Default coordinates: Arica, Chile (-18.4783, -70.3126)
-    const defaultLat = -18.4783;
-    const defaultLng = -70.3126;
+    const defaultLat = latitude || -18.4783;
+    const defaultLng = longitude || -70.3126;
 
     const map = L.map(mapRef.current, {
       zoomControl: true,
       scrollWheelZoom: true
-    }).setView([defaultLat, defaultLng], 13);
+    }).setView([defaultLat, defaultLng], latitude ? 16 : 13);
     
     leafletInstance.current = map;
 
@@ -112,6 +115,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress }
     marker.on('dragend', async () => {
       const position = marker.getLatLng();
       map.panTo(position);
+      if (onChangeLocation) onChangeLocation(position.lat, position.lng);
       await reverseGeocode(position.lat, position.lng);
     });
 
@@ -120,11 +124,16 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress }
       const { lat, lng } = e.latlng;
       marker.setLatLng([lat, lng]);
       map.panTo([lat, lng]);
+      if (onChangeLocation) onChangeLocation(lat, lng);
       await reverseGeocode(lat, lng);
     });
 
     // Initial positioning based on address or portal setting
     const locateInitialPosition = async () => {
+      if (latitude && longitude) {
+        return; // Already initialized with coords
+      }
+      
       const initialSearchText = address || portalSettings?.address || 'Arica, Chile';
       try {
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(initialSearchText)}&limit=1`, {
@@ -138,6 +147,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress }
           const newCoords = [parseFloat(lat), parseFloat(lon)];
           marker.setLatLng(newCoords);
           map.setView(newCoords, address ? 16 : 13);
+          if (onChangeLocation) onChangeLocation(parseFloat(lat), parseFloat(lon));
         }
       } catch (err) {
         console.error('Error initial geocoding:', err);
@@ -146,6 +156,20 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress }
 
     locateInitialPosition();
   }, [isLoaded]);
+
+  // Update marker position and center map if latitude/longitude change from outside (e.g. typed manually)
+  useEffect(() => {
+    if (!leafletInstance.current || !markerInstance.current || latitude === undefined || longitude === undefined) return;
+
+    const currentLatLng = markerInstance.current.getLatLng();
+    const diffLat = Math.abs(currentLatLng.lat - latitude);
+    const diffLng = Math.abs(currentLatLng.lng - longitude);
+
+    if (diffLat > 0.0001 || diffLng > 0.0001) {
+      markerInstance.current.setLatLng([latitude, longitude]);
+      leafletInstance.current.setView([latitude, longitude], 16);
+    }
+  }, [latitude, longitude]);
 
   // Geocodes the text input address and centers the map/marker on it
   const handleLocateAddress = async () => {
@@ -163,6 +187,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress }
         const newCoords = [parseFloat(lat), parseFloat(lon)];
         markerInstance.current.setLatLng(newCoords);
         leafletInstance.current.setView(newCoords, 16);
+        if (onChangeLocation) onChangeLocation(parseFloat(lat), parseFloat(lon));
       } else {
         alert('No se pudo encontrar la dirección especificada en el mapa. Intenta con una dirección más simple o arrastra el pin.');
       }

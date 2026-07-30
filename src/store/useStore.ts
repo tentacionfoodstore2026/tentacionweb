@@ -57,6 +57,8 @@ export interface Business {
   tiktokUrl?: string;
   promoImages?: string[];
   youtubeUrl?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface ProductSize {
