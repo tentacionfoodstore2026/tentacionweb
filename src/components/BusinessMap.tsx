@@ -23,7 +23,7 @@ export const BusinessMap: React.FC<BusinessMapProps> = ({ businesses }) => {
   const [mapError, setMapError] = useState<string | null>(null);
 
   const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
-  const MAPBOX_STYLE = 'mapbox://styles/tentacionfoodtore/cms72tj9w007o01qohkangdd4';
+  const MAPBOX_STYLE = 'mapbox://styles/mapbox/streets-v12';
 
   useEffect(() => {
     if ((window as any).mapboxgl) {
@@ -83,17 +83,21 @@ export const BusinessMap: React.FC<BusinessMapProps> = ({ businesses }) => {
     validBiz.forEach(biz => {
       // Create custom HTML element for marker
       const el = document.createElement('div');
-      el.style.position = 'relative';
       el.style.width = '48px';
       el.style.height = '48px';
-      el.style.borderRadius = '50%';
-      el.style.border = '3px solid #FFC31F';
-      el.style.boxShadow = '0 4px 16px rgba(0,0,0,0.25)';
-      el.style.background = '#fff';
-      el.style.cursor = 'pointer';
-      el.style.transition = 'transform 0.15s';
-      el.onmouseover = () => { el.style.transform = 'scale(1.15)'; };
-      el.onmouseout = () => { el.style.transform = 'scale(1)'; };
+
+      const inner = document.createElement('div');
+      inner.style.position = 'relative';
+      inner.style.width = '100%';
+      inner.style.height = '100%';
+      inner.style.borderRadius = '50%';
+      inner.style.border = '3px solid #FFC31F';
+      inner.style.boxShadow = '0 4px 16px rgba(0,0,0,0.25)';
+      inner.style.background = '#fff';
+      inner.style.cursor = 'pointer';
+      inner.style.transition = 'transform 0.15s ease-out';
+      inner.onmouseover = () => { inner.style.transform = 'scale(1.15)'; };
+      inner.onmouseout = () => { inner.style.transform = 'scale(1)'; };
 
       const img = document.createElement('img');
       img.src = biz.image;
@@ -103,7 +107,7 @@ export const BusinessMap: React.FC<BusinessMapProps> = ({ businesses }) => {
       img.style.borderRadius = '50%';
       img.style.objectFit = 'cover';
       img.onerror = () => { img.src = 'https://juksmchvbblljkhixcda.supabase.co/storage/v1/object/public/images/uploads/default.png'; };
-      el.appendChild(img);
+      inner.appendChild(img);
 
       const arrow = document.createElement('div');
       arrow.style.position = 'absolute';
@@ -115,7 +119,9 @@ export const BusinessMap: React.FC<BusinessMapProps> = ({ businesses }) => {
       arrow.style.borderLeft = '8px solid transparent';
       arrow.style.borderRight = '8px solid transparent';
       arrow.style.borderTop = '10px solid #FFC31F';
-      el.appendChild(arrow);
+      inner.appendChild(arrow);
+
+      el.appendChild(inner);
 
       const popupHtml = `
         <div style="min-width:140px;text-align:center;font-family:Inter,sans-serif;padding: 5px 0;">

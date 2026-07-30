@@ -21,7 +21,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({ address, onChangeAddress, 
   const [mapError, setMapError] = useState<string | null>(null);
 
   const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
-  const MAPBOX_STYLE = 'mapbox://styles/tentacionfoodtore/cms72tj9w007o01qohkangdd4';
+  const MAPBOX_STYLE = 'mapbox://styles/mapbox/streets-v12';
 
   useEffect(() => {
     if ((window as any).mapboxgl) {
